@@ -48,14 +48,20 @@ final class AuthManager: ObservableObject {
     }
     
     func login(serverURL: String, username: String, password: String) async throws {
-        let trimmedURL = serverURL.trimmingCharacters(in: .whitespacesAndNewlines)
-        self.serverURL = trimmedURL
-        UserDefaults.standard.set(trimmedURL, forKey: "server_url")
-        APIClient.shared.baseURLString = trimmedURL
-        
+        var normalizedURL = serverURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        normalizedURL = normalizedURL.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        let lowercasedURL = normalizedURL.lowercased()
+        if !lowercasedURL.hasPrefix("http://") && !lowercasedURL.hasPrefix("https://") {
+            normalizedURL = "https://" + normalizedURL
+        }
+
+        self.serverURL = normalizedURL
+        UserDefaults.standard.set(normalizedURL, forKey: "server_url")
+        APIClient.shared.baseURLString = normalizedURL
+
         let response = try await APIClient.shared.login(username: username, password: password)
         self.lastUsedPassword = password
-        
+
         try KeychainHelper.shared.saveToken(response.token)
         self.token = response.token
         APIClient.shared.token = response.token
@@ -97,9 +103,11 @@ final class AuthManager: ObservableObject {
 struct LoginResponse: Codable {
     let token: String
     let user: User
+    let expiresAt: String?
 }
 
 struct ChangePasswordResponse: Codable {
     let success: Bool
     let token: String
+    let expiresAt: String?
 }

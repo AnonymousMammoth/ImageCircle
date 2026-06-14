@@ -321,6 +321,80 @@ func (h *UserHandler) ToggleAdmin(c *gin.Context) {
 	utils.RespondJSON(c, http.StatusOK, user)
 }
 
+// GetUserPosts returns posts for a specific user.
+func (h *UserHandler) GetUserPosts(c *gin.Context) {
+	requestingUserID := c.GetInt64("user_id")
+
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		utils.RespondError(c, http.StatusBadRequest, "invalid id")
+		return
+	}
+
+	// Check the requested user exists
+	if _, err := models.GetUserByID(h.DB, id); err != nil {
+		if err == sql.ErrNoRows {
+			utils.RespondError(c, http.StatusNotFound, "user not found")
+			return
+		}
+		utils.RespondError(c, http.StatusInternalServerError, "failed to retrieve user")
+		return
+	}
+
+	posts, err := models.GetPostsByUser(h.DB, id, requestingUserID)
+	if err != nil {
+		utils.RespondError(c, http.StatusInternalServerError, "failed to retrieve posts")
+		return
+	}
+
+	utils.RespondJSON(c, http.StatusOK, gin.H{"posts": posts})
+}
+
+// UpdateAvatar uploads and sets the current user's avatar.
+func (h *UserHandler) UpdateAvatar(c *gin.Context) {
+	userID := c.GetInt64("user_id")
+
+	if err := c.Request.ParseMultipartForm(10 << 20); err != nil {
+		utils.RespondError(c, http.StatusBadRequest, "failed to parse form")
+		return
+	}
+
+	file, header, err := c.Request.FormFile("avatar")
+	if err != nil {
+		utils.RespondError(c, http.StatusBadRequest, "avatar file is required")
+		return
+	}
+	defer file.Close()
+
+	_, filename, err := h.MediaStore.SaveMedia(userID, file, header, 10<<20)
+	if err != nil {
+		utils.RespondError(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	user, err := models.GetUserByID(h.DB, userID)
+	if err != nil {
+		_ = h.MediaStore.DeleteMedia(strconv.FormatInt(userID, 10) + "/" + filename)
+		utils.RespondError(c, http.StatusInternalServerError, "failed to retrieve user")
+		return
+	}
+
+	// Delete old avatar file if present
+	if user.AvatarFilename != "" {
+		_ = h.MediaStore.DeleteMedia(strconv.FormatInt(userID, 10) + "/" + user.AvatarFilename)
+	}
+
+	user.AvatarFilename = filename
+	if err := models.UpdateUser(h.DB, user); err != nil {
+		_ = h.MediaStore.DeleteMedia(strconv.FormatInt(userID, 10) + "/" + filename)
+		utils.RespondError(c, http.StatusInternalServerError, "failed to update avatar")
+		return
+	}
+
+	user.PasswordHash = ""
+	utils.RespondJSON(c, http.StatusOK, user)
+}
+
 // GetStats returns platform statistics (admin only).
 func (h *UserHandler) GetStats(c *gin.Context) {
 	if !c.GetBool("is_admin") {

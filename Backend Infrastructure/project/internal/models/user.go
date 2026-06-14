@@ -14,7 +14,17 @@ type User struct {
 	PasswordHash           string    `json:"-"`
 	IsAdmin                bool      `json:"is_admin"`
 	PasswordChangeRequired bool      `json:"password_change_required"`
+	AvatarFilename         string    `json:"avatar_filename"`
+	AvatarURL              string    `json:"avatar_url"`
 	CreatedAt              time.Time `json:"created_at"`
+}
+
+// BuildAvatarURL formats an avatar file URL.
+func BuildAvatarURL(userID int64, filename string) string {
+	if filename == "" {
+		return ""
+	}
+	return fmt.Sprintf("/media/%d/%s", userID, filename)
 }
 
 // CreateUser inserts a new user and returns the created record.
@@ -39,7 +49,7 @@ func CreateUser(db *sql.DB, username, displayName, passwordHash string, isAdmin 
 // GetUserByID retrieves a user by primary key.
 func GetUserByID(db *sql.DB, id int64) (*User, error) {
 	query := `
-		SELECT id, username, display_name, password_hash, is_admin, password_change_required, created_at
+		SELECT id, username, display_name, password_hash, is_admin, password_change_required, avatar_filename, created_at
 		FROM users
 		WHERE id = ?
 	`
@@ -50,7 +60,7 @@ func GetUserByID(db *sql.DB, id int64) (*User, error) {
 // GetUserByUsername retrieves a user by username.
 func GetUserByUsername(db *sql.DB, username string) (*User, error) {
 	query := `
-		SELECT id, username, display_name, password_hash, is_admin, password_change_required, created_at
+		SELECT id, username, display_name, password_hash, is_admin, password_change_required, avatar_filename, created_at
 		FROM users
 		WHERE username = ?
 	`
@@ -62,7 +72,7 @@ func GetUserByUsername(db *sql.DB, username string) (*User, error) {
 func SearchUsers(db *sql.DB, query string) ([]*User, error) {
 	pattern := "%" + query + "%"
 	sqlQuery := `
-		SELECT id, username, display_name, password_hash, is_admin, password_change_required, created_at
+		SELECT id, username, display_name, password_hash, is_admin, password_change_required, avatar_filename, created_at
 		FROM users
 		WHERE username LIKE ? OR display_name LIKE ?
 		ORDER BY username
@@ -79,7 +89,7 @@ func SearchUsers(db *sql.DB, query string) ([]*User, error) {
 // GetAllUsers retrieves all users ordered by created_at descending.
 func GetAllUsers(db *sql.DB) ([]*User, error) {
 	query := `
-		SELECT id, username, display_name, password_hash, is_admin, password_change_required, created_at
+		SELECT id, username, display_name, password_hash, is_admin, password_change_required, avatar_filename, created_at
 		FROM users
 		ORDER BY created_at DESC
 	`
@@ -92,14 +102,14 @@ func GetAllUsers(db *sql.DB) ([]*User, error) {
 	return scanUsers(rows)
 }
 
-// UpdateUser updates a user's display_name and is_admin fields.
+// UpdateUser updates a user's display_name, avatar_filename and is_admin fields.
 func UpdateUser(db *sql.DB, user *User) error {
 	query := `
 		UPDATE users
-		SET display_name = ?, is_admin = ?
+		SET display_name = ?, avatar_filename = ?, is_admin = ?
 		WHERE id = ?
 	`
-	result, err := db.Exec(query, user.DisplayName, user.IsAdmin, user.ID)
+	result, err := db.Exec(query, user.DisplayName, nullString(user.AvatarFilename), user.IsAdmin, user.ID)
 	if err != nil {
 		return fmt.Errorf("update user: %w", err)
 	}
@@ -185,6 +195,7 @@ func scanUser(row *sql.Row) (*User, error) {
 	var u User
 	var isAdminInt int
 	var passwordChangeRequiredInt int
+	var avatarFilename sql.NullString
 
 	err := row.Scan(
 		&u.ID,
@@ -193,6 +204,7 @@ func scanUser(row *sql.Row) (*User, error) {
 		&u.PasswordHash,
 		&isAdminInt,
 		&passwordChangeRequiredInt,
+		&avatarFilename,
 		&u.CreatedAt,
 	)
 	if err != nil {
@@ -204,6 +216,8 @@ func scanUser(row *sql.Row) (*User, error) {
 
 	u.IsAdmin = isAdminInt != 0
 	u.PasswordChangeRequired = passwordChangeRequiredInt != 0
+	u.AvatarFilename = avatarFilename.String
+	u.AvatarURL = BuildAvatarURL(u.ID, u.AvatarFilename)
 	return &u, nil
 }
 
@@ -214,6 +228,7 @@ func scanUsers(rows *sql.Rows) ([]*User, error) {
 		var u User
 		var isAdminInt int
 		var passwordChangeRequiredInt int
+		var avatarFilename sql.NullString
 
 		err := rows.Scan(
 			&u.ID,
@@ -222,6 +237,7 @@ func scanUsers(rows *sql.Rows) ([]*User, error) {
 			&u.PasswordHash,
 			&isAdminInt,
 			&passwordChangeRequiredInt,
+			&avatarFilename,
 			&u.CreatedAt,
 		)
 		if err != nil {
@@ -230,6 +246,8 @@ func scanUsers(rows *sql.Rows) ([]*User, error) {
 
 		u.IsAdmin = isAdminInt != 0
 		u.PasswordChangeRequired = passwordChangeRequiredInt != 0
+		u.AvatarFilename = avatarFilename.String
+		u.AvatarURL = BuildAvatarURL(u.ID, u.AvatarFilename)
 		users = append(users, &u)
 	}
 

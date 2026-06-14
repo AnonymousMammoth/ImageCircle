@@ -22,12 +22,12 @@ struct Post: Codable, Identifiable, Hashable {
         case id
         case user
         case caption
-        case mediaFilename = "media_filename"
-        case thumbnailFilename = "thumbnail_filename"
-        case createdAt = "created_at"
-        case likesCount = "likes_count"
-        case commentsCount = "comments_count"
-        case hasLiked = "has_liked"
+        case mediaFilename
+        case thumbnailFilename
+        case createdAt
+        case likesCount
+        case commentsCount
+        case hasLiked
     }
     
     /// A post is considered a text-only post when it has no media filename.

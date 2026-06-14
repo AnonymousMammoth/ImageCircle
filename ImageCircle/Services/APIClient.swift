@@ -114,6 +114,8 @@ final class APIClient {
         var req = URLRequest(url: url)
         req.httpMethod = method
         req.setValue(contentType, forHTTPHeaderField: "Content-Type")
+        req.setValue("application/json", forHTTPHeaderField: "Accept")
+        req.setValue("ImageCircle-iOS/1.0", forHTTPHeaderField: "User-Agent")
         if let token = token {
             req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
@@ -162,7 +164,16 @@ final class APIClient {
         guard let http = response as? HTTPURLResponse else {
             throw APIError.invalidResponse
         }
-        
+
+        // MARK: - Temporary Debug Logging
+        let urlString = http.url?.absoluteString ?? "unknown"
+        let statusCode = http.statusCode
+        let bodyString = String(data: data, encoding: .utf8) ?? "<non-UTF8 data>"
+        print("[TEMP DEBUG] Response URL: \(urlString)")
+        print("[TEMP DEBUG] HTTP Status: \(statusCode)")
+        print("[TEMP DEBUG] Response Body: \(bodyString)")
+        // MARK: - End Temporary Debug Logging
+
         switch http.statusCode {
         case 200...299:
             if allowEmpty && data.isEmpty {
@@ -174,6 +185,12 @@ final class APIClient {
             do {
                 return try jsonDecoder.decode(T.self, from: data)
             } catch {
+                // MARK: - Temporary Debug Logging
+                print("[TEMP DEBUG] JSON decoding failed for \(urlString): \(error)")
+                if let decodingError = error as? DecodingError {
+                    print("[TEMP DEBUG] DecodingError details: \(decodingError)")
+                }
+                // MARK: - End Temporary Debug Logging
                 throw APIError.decodingError(error)
             }
         case 401:
@@ -221,7 +238,7 @@ final class APIClient {
         
         enum CodingKeys: String, CodingKey {
             case liked
-            case likeCount = "like_count"
+            case likeCount
         }
     }
     
@@ -253,6 +270,21 @@ final class APIClient {
         let url = try apiURL(path: "users/me")
         let req = request(for: url)
         return try await perform(req)
+    }
+
+    func fetchUserPosts(userID: Int) async throws -> [Post] {
+        let url = try apiURL(path: "users/\(userID)/posts")
+        let req = request(for: url)
+        let response: PostsResponse = try await perform(req)
+        return response.posts
+    }
+
+    func updateAvatar(imageData: Data, filename: String = "avatar.jpg") async throws -> User {
+        let url = try apiURL(path: "users/me/avatar")
+        let boundary = UUID().uuidString
+        var req = request(for: url, method: "POST", contentType: "multipart/form-data; boundary=\(boundary)")
+        req.httpBody = buildMultipartBody(boundary: boundary, fields: [:], fileData: imageData, fileField: "avatar", filename: filename, mimeType: "image/jpeg")
+        return try await perform(req, session: uploadSession)
     }
     
     // MARK: - Feed & Posts
@@ -429,7 +461,7 @@ struct CreateUserResponse: Codable {
     
     enum CodingKeys: String, CodingKey {
         case user
-        case temporaryPassword = "temporary_password"
+        case temporaryPassword
     }
 }
 
@@ -437,7 +469,7 @@ struct ResetPasswordResponse: Codable {
     let temporaryPassword: String
     
     enum CodingKeys: String, CodingKey {
-        case temporaryPassword = "temporary_password"
+        case temporaryPassword
     }
 }
 

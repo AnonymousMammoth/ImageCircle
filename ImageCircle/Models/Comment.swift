@@ -17,6 +17,6 @@ struct Comment: Codable, Identifiable, Hashable {
         case id
         case user
         case text
-        case createdAt = "created_at"
+        case createdAt
     }
 }

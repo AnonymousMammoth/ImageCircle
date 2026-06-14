@@ -35,12 +35,34 @@ func New(dbPath string) (*DB, error) {
 	}
 
 	db := &DB{conn: conn}
+	if err := db.migrate(); err != nil {
+		_ = conn.Close()
+		return nil, fmt.Errorf("migrate: %w", err)
+	}
 	if err := db.RunSchema(); err != nil {
 		_ = conn.Close()
 		return nil, fmt.Errorf("run schema: %w", err)
 	}
 
 	return db, nil
+}
+
+// migrate applies one-off schema migrations that are not handled by schema.sql.
+func (db *DB) migrate() error {
+	// Add avatar_filename column to users if it doesn't exist.
+	var count int
+	err := db.conn.QueryRow(`
+		SELECT COUNT(*) FROM pragma_table_info('users') WHERE name = 'avatar_filename'
+	`).Scan(&count)
+	if err != nil {
+		return fmt.Errorf("check avatar column: %w", err)
+	}
+	if count == 0 {
+		if _, err := db.conn.Exec(`ALTER TABLE users ADD COLUMN avatar_filename TEXT`); err != nil {
+			return fmt.Errorf("add avatar column: %w", err)
+		}
+	}
+	return nil
 }
 
 // Conn returns the underlying *sql.DB connection.

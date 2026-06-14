@@ -21,11 +21,11 @@ struct Story: Codable, Identifiable, Hashable {
     enum CodingKeys: String, CodingKey {
         case id
         case user
-        case mediaFilename = "media_filename"
-        case thumbnailFilename = "thumbnail_filename"
-        case mediaType = "media_type"
-        case createdAt = "created_at"
-        case expiresAt = "expires_at"
+        case mediaFilename
+        case thumbnailFilename
+        case mediaType
+        case createdAt
+        case expiresAt
         case viewed
     }
     

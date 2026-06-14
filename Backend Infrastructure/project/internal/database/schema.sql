@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS users (
     password_hash TEXT NOT NULL,
     is_admin INTEGER DEFAULT 0,
     password_change_required INTEGER DEFAULT 1,
+    avatar_filename TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
