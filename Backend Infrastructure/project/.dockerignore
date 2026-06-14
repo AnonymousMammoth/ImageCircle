@@ -1,0 +1,42 @@
+# Git
+.git
+.gitignore
+
+# Documentation
+*.md
+
+# Local data (database + media)
+data/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Environment files (secrets)
+*.env
+.env
+
+# Temporary web files
+web/*.tmp
+
+# Docker files (don't need in build context)
+Dockerfile
+docker-compose.yml
+nginx.conf
+Makefile
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Test artifacts
+*.test
+coverage.out
+coverage.html

@@ -1,0 +1,26 @@
+# macOS
+.DS_Store
+
+# Xcode
+build/
+DerivedData/
+*.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcuserdata/
+
+# Go backend build artifacts
+Backend Infrastructure/project/server
+Backend Infrastructure/project/circle
+*.exe
+
+# Local tooling
+.tools/
+
+# Backend runtime data
+data/
+*.db
+*.db-wal
+*.db-shm
+
+# Secrets
+.env

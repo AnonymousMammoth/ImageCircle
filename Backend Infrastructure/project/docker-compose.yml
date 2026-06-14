@@ -1,0 +1,82 @@
+# Docker Compose for Circle - Private Photo Sharing Platform
+#
+# Architecture:
+#   - circle-app: Go backend (no direct port exposure)
+#   - circle-nginx: Reverse proxy + static media serving
+#
+# nginx handles:
+#   - Media file serving (direct from filesystem with caching)
+#   - API request proxying to Go backend
+#   - Security headers and access control
+#
+# Usage:
+#   cp .env.example .env   # Edit with your secrets
+#   docker compose up -d
+
+version: "3.8"
+
+services:
+  circle-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: circle-app
+    restart: unless-stopped
+    environment:
+      - CIRCLE_PORT=8080
+      - CIRCLE_DATA_DIR=/data
+      - CIRCLE_JWT_SECRET=${CIRCLE_JWT_SECRET}
+      - CIRCLE_ALLOWED_ORIGIN=${CIRCLE_ALLOWED_ORIGIN}
+      - CIRCLE_MAX_MEDIA_SIZE=52428800
+      - CIRCLE_RATE_LIMIT=100
+      - CIRCLE_PASSWORD_COST=12
+    volumes:
+      - ./data:/data
+    networks:
+      - circle-network
+    # No ports exposed directly -- only accessible through nginx
+    security_opt:
+      - no-new-privileges:true
+    # Resource limits for Raspberry Pi (512MB RAM target per service)
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.50'
+        reservations:
+          memory: 32M
+          cpus: '0.10'
+
+  circle-nginx:
+    image: nginx:alpine
+    container_name: circle-nginx
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    volumes:
+      - ./data:/data:ro
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    networks:
+      - circle-network
+    depends_on:
+      - circle-app
+    security_opt:
+      - no-new-privileges:true
+    # Resource limits for Raspberry Pi
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+          cpus: '0.25'
+        reservations:
+          memory: 8M
+          cpus: '0.05'
+
+networks:
+  circle-network:
+    driver: bridge
+
+# Optional: named volume for data persistence
+# volumes:
+#   circle-data:
+#     driver: local

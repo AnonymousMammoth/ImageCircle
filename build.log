@@ -1,0 +1,308 @@
+Command line invocation:
+    /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild -project ImageCircle.xcodeproj -scheme ImageCircle -destination "platform=iOS Simulator,name=iPhone 17,OS=26.1" -skipMacroValidation -skipPackagePluginValidation build CODE_SIGNING_ALLOWED=NO
+
+Build settings from command line:
+    CODE_SIGNING_ALLOWED = NO
+
+Resolve Package Graph
+
+
+Resolved source packages:
+  Kingfisher: https://github.com/onevcat/Kingfisher.git @ 7.12.0
+
+ComputePackagePrebuildTargetDependencyGraph
+
+Prepare packages
+
+CreateBuildRequest
+
+SendProjectDescription
+
+CreateBuildOperation
+
+ComputeTargetDependencyGraph
+note: Building targets in dependency order
+note: Target dependency graph (4 targets)
+    Target 'ImageCircle' in project 'ImageCircle'
+        ➜ Explicit dependency on target 'Kingfisher' in project 'Kingfisher'
+    Target 'Kingfisher' in project 'Kingfisher'
+        ➜ Explicit dependency on target 'Kingfisher' in project 'Kingfisher'
+        ➜ Explicit dependency on target 'Kingfisher_Kingfisher' in project 'Kingfisher'
+    Target 'Kingfisher' in project 'Kingfisher'
+        ➜ Explicit dependency on target 'Kingfisher_Kingfisher' in project 'Kingfisher'
+    Target 'Kingfisher_Kingfisher' in project 'Kingfisher' (no dependencies)
+
+GatherProvisioningInputs
+
+CreateBuildDescription
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -v -E -dM -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.1.sdk -x c -c /dev/null
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/usr/bin/actool --print-asset-tag-combinations --output-format xml1 /Users/mattmarsh/Documents/PhotoCircle/ImageCircle/Assets.xcassets
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc --version
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/usr/bin/actool --version --output-format xml1
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ld -version_details
+
+Build description signature: 1338d647fb9433aa1599b92e7e6a425d
+Build description path: /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Intermediates.noindex/XCBuildData/1338d647fb9433aa1599b92e7e6a425d.xcbuilddata
+ClangStatCache /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.1.sdk /Users/mattmarsh/Library/Developer/Xcode/DerivedData/SDKStatCaches.noindex/iphonesimulator26.1-23B77-90cf18a4295e390e64c810bc6bd7acbc.sdkstatcache
+    cd /Users/mattmarsh/Documents/PhotoCircle/ImageCircle.xcodeproj
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.1.sdk -o /Users/mattmarsh/Library/Developer/Xcode/DerivedData/SDKStatCaches.noindex/iphonesimulator26.1-23B77-90cf18a4295e390e64c810bc6bd7acbc.sdkstatcache
+
+ProcessInfoPlistFile /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Products/Debug-iphonesimulator/Kingfisher_Kingfisher.bundle/Info.plist /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Intermediates.noindex/Kingfisher.build/Debug-iphonesimulator/Kingfisher_Kingfisher.build/empty-Kingfisher_Kingfisher.plist (in target 'Kingfisher_Kingfisher' from project 'Kingfisher')
+    cd /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/SourcePackages/checkouts/Kingfisher
+    builtin-infoPlistUtility /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Intermediates.noindex/Kingfisher.build/Debug-iphonesimulator/Kingfisher_Kingfisher.build/empty-Kingfisher_Kingfisher.plist -producttype com.apple.product-type.bundle -expandbuildsettings -format binary -platform iphonesimulator -o /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Products/Debug-iphonesimulator/Kingfisher_Kingfisher.bundle/Info.plist
+
+SwiftDriver ImageCircle normal arm64 com.apple.xcode.tools.swift.compiler (in target 'ImageCircle' from project 'ImageCircle')
+    cd /Users/mattmarsh/Documents/PhotoCircle
+    builtin-SwiftDriver -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name ImageCircle -Onone -enforce-exclusivity\=checked @/Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Intermediates.noindex/ImageCircle.build/Debug-iphonesimulator/ImageCircle.build/Objects-normal/arm64/ImageCircle.SwiftFileList -DDEBUG -default-isolation\=MainActor -enable-bare-slash-regex -enable-upcoming-feature DisableOutwardActorInference -enable-upcoming-feature InferSendableFromCaptures -enable-upcoming-feature GlobalActorIsolatedTypesUsability -enable-upcoming-feature MemberImportVisibility -enable-upcoming-feature InferIsolatedConformances -enable-upcoming-feature NonisolatedNonsendingByDefault -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.1.sdk -target arm64-apple-ios17.0-simulator -g -module-cache-path /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ModuleCache.noindex -Xfrontend -serialize-debugging-options -enable-testing -index-store-path /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Index.noindex/DataStore -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 5 -I /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Products/Debug-iphonesimulator -F /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Products/Debug-iphonesimulator/PackageFrameworks -F /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Products/Debug-iphonesimulator -emit-localized-strings -emit-localized-strings-path /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Intermediates.noindex/ImageCircle.build/Debug-iphonesimulator/ImageCircle.build/Objects-normal/arm64 -c -j8 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /Users/mattmarsh/Library/Developer/Xcode/DerivedData/SDKStatCaches.noindex/iphonesimulator26.1-23B77-90cf18a4295e390e64c810bc6bd7acbc.sdkstatcache -output-file-map /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Intermediates.noindex/ImageCircle.build/Debug-iphonesimulator/ImageCircle.build/Objects-normal/arm64/ImageCircle-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -clang-scanner-module-cache-path /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ModuleCache.noindex -sdk-module-cache-path /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ModuleCache.noindex -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Intermediates.noindex/ImageCircle.build/Debug-iphonesimulator/ImageCircle.build/Objects-normal/arm64/ImageCircle.swiftmodule -validate-clang-modules-once -clang-build-session-file /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ModuleCache.noindex/Session.modulevalidation -Xcc -I/Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Intermediates.noindex/ImageCircle.build/Debug-iphonesimulator/ImageCircle.build/swift-overrides.hmap -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Intermediates.noindex/ImageCircle.build/Debug-iphonesimulator/ImageCircle.build/Objects-normal/arm64/ImageCircle_const_extract_protocols.json -Xcc -iquote -Xcc /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Intermediates.noindex/ImageCircle.build/Debug-iphonesimulator/ImageCircle.build/ImageCircle-generated-files.hmap -Xcc -I/Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Intermediates.noindex/ImageCircle.build/Debug-iphonesimulator/ImageCircle.build/ImageCircle-own-target-headers.hmap -Xcc -I/Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Intermediates.noindex/ImageCircle.build/Debug-iphonesimulator/ImageCircle.build/ImageCircle-all-non-framework-target-headers.hmap -Xcc -ivfsoverlay -Xcc /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Intermediates.noindex/ImageCircle.build/Debug-iphonesimulator/ImageCircle-8a4febc6aee9f6d659445b68772d1ca5-VFS-iphonesimulator/all-product-headers.yaml -Xcc -iquote -Xcc /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Intermediates.noindex/ImageCircle.build/Debug-iphonesimulator/ImageCircle.build/ImageCircle-project-headers.hmap -Xcc -I/Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Products/Debug-iphonesimulator/include -Xcc -I/Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Intermediates.noindex/ImageCircle.build/Debug-iphonesimulator/ImageCircle.build/DerivedSources-normal/arm64 -Xcc -I/Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Intermediates.noindex/ImageCircle.build/Debug-iphonesimulator/ImageCircle.build/DerivedSources/arm64 -Xcc -I/Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Intermediates.noindex/ImageCircle.build/Debug-iphonesimulator/ImageCircle.build/DerivedSources -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Intermediates.noindex/ImageCircle.build/Debug-iphonesimulator/ImageCircle.build/Objects-normal/arm64/ImageCircle-Swift.h -working-directory /Users/mattmarsh/Documents/PhotoCircle -experimental-emit-module-separately -disable-cmo
+
+SwiftCompile normal arm64 Compiling\ CameraView.swift,\ MediaPreviewView.swift /Users/mattmarsh/Documents/PhotoCircle/ImageCircle/Views/Camera/CameraView.swift /Users/mattmarsh/Documents/PhotoCircle/ImageCircle/Views/Camera/MediaPreviewView.swift (in target 'ImageCircle' from project 'ImageCircle')
+
+SwiftCompile normal arm64 /Users/mattmarsh/Documents/PhotoCircle/ImageCircle/Views/Camera/CameraView.swift (in target 'ImageCircle' from project 'ImageCircle')
+    cd /Users/mattmarsh/Documents/PhotoCircle
+    
+
+SwiftCompile normal arm64 /Users/mattmarsh/Documents/PhotoCircle/ImageCircle/Views/Camera/MediaPreviewView.swift (in target 'ImageCircle' from project 'ImageCircle')
+    cd /Users/mattmarsh/Documents/PhotoCircle
+    
+
+SwiftCompile normal arm64 Compiling\ PostCardView.swift,\ StoriesTrayView.swift /Users/mattmarsh/Documents/PhotoCircle/ImageCircle/Views/Home/PostCardView.swift /Users/mattmarsh/Documents/PhotoCircle/ImageCircle/Views/Home/StoriesTrayView.swift (in target 'ImageCircle' from project 'ImageCircle')
+
+SwiftCompile normal arm64 /Users/mattmarsh/Documents/PhotoCircle/ImageCircle/Views/Home/PostCardView.swift (in target 'ImageCircle' from project 'ImageCircle')
+    cd /Users/mattmarsh/Documents/PhotoCircle
+    
+
+SwiftCompile normal arm64 /Users/mattmarsh/Documents/PhotoCircle/ImageCircle/Views/Home/StoriesTrayView.swift (in target 'ImageCircle' from project 'ImageCircle')
+    cd /Users/mattmarsh/Documents/PhotoCircle
+    
+
+SwiftCompile normal arm64 Compiling\ FeedFilter.swift,\ APIClient.swift /Users/mattmarsh/Documents/PhotoCircle/ImageCircle/Models/FeedFilter.swift /Users/mattmarsh/Documents/PhotoCircle/ImageCircle/Services/APIClient.swift (in target 'ImageCircle' from project 'ImageCircle')
+
+SwiftCompile normal arm64 /Users/mattmarsh/Documents/PhotoCircle/ImageCircle/Models/FeedFilter.swift (in target 'ImageCircle' from project 'ImageCircle')
+    cd /Users/mattmarsh/Documents/PhotoCircle
+    
+
+SwiftCompile normal arm64 /Users/mattmarsh/Documents/PhotoCircle/ImageCircle/Services/APIClient.swift (in target 'ImageCircle' from project 'ImageCircle')
+    cd /Users/mattmarsh/Documents/PhotoCircle
+    
+
+SwiftCompile normal arm64 Compiling\ ViewExtensions.swift,\ AdminView.swift /Users/mattmarsh/Documents/PhotoCircle/ImageCircle/Utilities/ViewExtensions.swift /Users/mattmarsh/Documents/PhotoCircle/ImageCircle/Views/Admin/AdminView.swift (in target 'ImageCircle' from project 'ImageCircle')
+
+SwiftCompile normal arm64 /Users/mattmarsh/Documents/PhotoCircle/ImageCircle/Utilities/ViewExtensions.swift (in target 'ImageCircle' from project 'ImageCircle')
+    cd /Users/mattmarsh/Documents/PhotoCircle
+    
+
+SwiftCompile normal arm64 /Users/mattmarsh/Documents/PhotoCircle/ImageCircle/Views/Admin/AdminView.swift (in target 'ImageCircle' from project 'ImageCircle')
+    cd /Users/mattmarsh/Documents/PhotoCircle
+    
+
+SwiftCompile normal arm64 Compiling\ TextPostComposerView.swift,\ HomeView.swift /Users/mattmarsh/Documents/PhotoCircle/ImageCircle/Views/Camera/TextPostComposerView.swift /Users/mattmarsh/Documents/PhotoCircle/ImageCircle/Views/Home/HomeView.swift (in target 'ImageCircle' from project 'ImageCircle')
+
+SwiftCompile normal arm64 /Users/mattmarsh/Documents/PhotoCircle/ImageCircle/Views/Camera/TextPostComposerView.swift (in target 'ImageCircle' from project 'ImageCircle')
+    cd /Users/mattmarsh/Documents/PhotoCircle
+    
+
+SwiftCompile normal arm64 /Users/mattmarsh/Documents/PhotoCircle/ImageCircle/Views/Home/HomeView.swift (in target 'ImageCircle' from project 'ImageCircle')
+    cd /Users/mattmarsh/Documents/PhotoCircle
+    
+
+SwiftEmitModule normal arm64 Emitting\ module\ for\ ImageCircle (in target 'ImageCircle' from project 'ImageCircle')
+
+EmitSwiftModule normal arm64 (in target 'ImageCircle' from project 'ImageCircle')
+    cd /Users/mattmarsh/Documents/PhotoCircle
+    
+
+SwiftCompile normal arm64 Compiling\ StoryViewerView.swift,\ LoginView.swift /Users/mattmarsh/Documents/PhotoCircle/ImageCircle/Views/Home/StoryViewerView.swift /Users/mattmarsh/Documents/PhotoCircle/ImageCircle/Views/Login/LoginView.swift (in target 'ImageCircle' from project 'ImageCircle')
+
+SwiftCompile normal arm64 /Users/mattmarsh/Documents/PhotoCircle/ImageCircle/Views/Home/StoryViewerView.swift (in target 'ImageCircle' from project 'ImageCircle')
+    cd /Users/mattmarsh/Documents/PhotoCircle
+    
+
+SwiftCompile normal arm64 /Users/mattmarsh/Documents/PhotoCircle/ImageCircle/Views/Login/LoginView.swift (in target 'ImageCircle' from project 'ImageCircle')
+    cd /Users/mattmarsh/Documents/PhotoCircle
+    
+
+SwiftCompile normal arm64 Compiling\ SearchView.swift /Users/mattmarsh/Documents/PhotoCircle/ImageCircle/Views/Search/SearchView.swift (in target 'ImageCircle' from project 'ImageCircle')
+
+SwiftCompile normal arm64 /Users/mattmarsh/Documents/PhotoCircle/ImageCircle/Views/Search/SearchView.swift (in target 'ImageCircle' from project 'ImageCircle')
+    cd /Users/mattmarsh/Documents/PhotoCircle
+    
+
+SwiftCompile normal arm64 Compiling\ ProfileView.swift /Users/mattmarsh/Documents/PhotoCircle/ImageCircle/Views/Profile/ProfileView.swift (in target 'ImageCircle' from project 'ImageCircle')
+
+SwiftCompile normal arm64 /Users/mattmarsh/Documents/PhotoCircle/ImageCircle/Views/Profile/ProfileView.swift (in target 'ImageCircle' from project 'ImageCircle')
+    cd /Users/mattmarsh/Documents/PhotoCircle
+    
+
+SwiftDriverJobDiscovery normal arm64 Emitting module for ImageCircle (in target 'ImageCircle' from project 'ImageCircle')
+
+SwiftDriver\ Compilation\ Requirements ImageCircle normal arm64 com.apple.xcode.tools.swift.compiler (in target 'ImageCircle' from project 'ImageCircle')
+    cd /Users/mattmarsh/Documents/PhotoCircle
+    builtin-Swift-Compilation-Requirements -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name ImageCircle -Onone -enforce-exclusivity\=checked @/Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Intermediates.noindex/ImageCircle.build/Debug-iphonesimulator/ImageCircle.build/Objects-normal/arm64/ImageCircle.SwiftFileList -DDEBUG -default-isolation\=MainActor -enable-bare-slash-regex -enable-upcoming-feature DisableOutwardActorInference -enable-upcoming-feature InferSendableFromCaptures -enable-upcoming-feature GlobalActorIsolatedTypesUsability -enable-upcoming-feature MemberImportVisibility -enable-upcoming-feature InferIsolatedConformances -enable-upcoming-feature NonisolatedNonsendingByDefault -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.1.sdk -target arm64-apple-ios17.0-simulator -g -module-cache-path /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ModuleCache.noindex -Xfrontend -serialize-debugging-options -enable-testing -index-store-path /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Index.noindex/DataStore -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 5 -I /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Products/Debug-iphonesimulator -F /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Products/Debug-iphonesimulator/PackageFrameworks -F /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Products/Debug-iphonesimulator -emit-localized-strings -emit-localized-strings-path /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Intermediates.noindex/ImageCircle.build/Debug-iphonesimulator/ImageCircle.build/Objects-normal/arm64 -c -j8 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /Users/mattmarsh/Library/Developer/Xcode/DerivedData/SDKStatCaches.noindex/iphonesimulator26.1-23B77-90cf18a4295e390e64c810bc6bd7acbc.sdkstatcache -output-file-map /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Intermediates.noindex/ImageCircle.build/Debug-iphonesimulator/ImageCircle.build/Objects-normal/arm64/ImageCircle-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -clang-scanner-module-cache-path /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ModuleCache.noindex -sdk-module-cache-path /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ModuleCache.noindex -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Intermediates.noindex/ImageCircle.build/Debug-iphonesimulator/ImageCircle.build/Objects-normal/arm64/ImageCircle.swiftmodule -validate-clang-modules-once -clang-build-session-file /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ModuleCache.noindex/Session.modulevalidation -Xcc -I/Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Intermediates.noindex/ImageCircle.build/Debug-iphonesimulator/ImageCircle.build/swift-overrides.hmap -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Intermediates.noindex/ImageCircle.build/Debug-iphonesimulator/ImageCircle.build/Objects-normal/arm64/ImageCircle_const_extract_protocols.json -Xcc -iquote -Xcc /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Intermediates.noindex/ImageCircle.build/Debug-iphonesimulator/ImageCircle.build/ImageCircle-generated-files.hmap -Xcc -I/Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Intermediates.noindex/ImageCircle.build/Debug-iphonesimulator/ImageCircle.build/ImageCircle-own-target-headers.hmap -Xcc -I/Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Intermediates.noindex/ImageCircle.build/Debug-iphonesimulator/ImageCircle.build/ImageCircle-all-non-framework-target-headers.hmap -Xcc -ivfsoverlay -Xcc /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Intermediates.noindex/ImageCircle.build/Debug-iphonesimulator/ImageCircle-8a4febc6aee9f6d659445b68772d1ca5-VFS-iphonesimulator/all-product-headers.yaml -Xcc -iquote -Xcc /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Intermediates.noindex/ImageCircle.build/Debug-iphonesimulator/ImageCircle.build/ImageCircle-project-headers.hmap -Xcc -I/Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Products/Debug-iphonesimulator/include -Xcc -I/Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Intermediates.noindex/ImageCircle.build/Debug-iphonesimulator/ImageCircle.build/DerivedSources-normal/arm64 -Xcc -I/Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Intermediates.noindex/ImageCircle.build/Debug-iphonesimulator/ImageCircle.build/DerivedSources/arm64 -Xcc -I/Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Intermediates.noindex/ImageCircle.build/Debug-iphonesimulator/ImageCircle.build/DerivedSources -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Intermediates.noindex/ImageCircle.build/Debug-iphonesimulator/ImageCircle.build/Objects-normal/arm64/ImageCircle-Swift.h -working-directory /Users/mattmarsh/Documents/PhotoCircle -experimental-emit-module-separately -disable-cmo
+
+SwiftDriverJobDiscovery normal arm64 Compiling SearchView.swift (in target 'ImageCircle' from project 'ImageCircle')
+
+SwiftCompile normal arm64 Compiling\ MainTabView.swift /Users/mattmarsh/Documents/PhotoCircle/ImageCircle/Views/MainTabView.swift (in target 'ImageCircle' from project 'ImageCircle')
+
+SwiftCompile normal arm64 /Users/mattmarsh/Documents/PhotoCircle/ImageCircle/Views/MainTabView.swift (in target 'ImageCircle' from project 'ImageCircle')
+    cd /Users/mattmarsh/Documents/PhotoCircle
+    
+
+Copy /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Products/Debug-iphonesimulator/ImageCircle.swiftmodule/arm64-apple-ios-simulator.swiftmodule /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Intermediates.noindex/ImageCircle.build/Debug-iphonesimulator/ImageCircle.build/Objects-normal/arm64/ImageCircle.swiftmodule (in target 'ImageCircle' from project 'ImageCircle')
+    cd /Users/mattmarsh/Documents/PhotoCircle
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Intermediates.noindex/ImageCircle.build/Debug-iphonesimulator/ImageCircle.build/Objects-normal/arm64/ImageCircle.swiftmodule /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Products/Debug-iphonesimulator/ImageCircle.swiftmodule/arm64-apple-ios-simulator.swiftmodule
+
+SwiftDriverJobDiscovery normal arm64 Compiling FeedFilter.swift, APIClient.swift (in target 'ImageCircle' from project 'ImageCircle')
+
+Copy /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Products/Debug-iphonesimulator/ImageCircle.swiftmodule/arm64-apple-ios-simulator.swiftdoc /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Intermediates.noindex/ImageCircle.build/Debug-iphonesimulator/ImageCircle.build/Objects-normal/arm64/ImageCircle.swiftdoc (in target 'ImageCircle' from project 'ImageCircle')
+    cd /Users/mattmarsh/Documents/PhotoCircle
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Intermediates.noindex/ImageCircle.build/Debug-iphonesimulator/ImageCircle.build/Objects-normal/arm64/ImageCircle.swiftdoc /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Products/Debug-iphonesimulator/ImageCircle.swiftmodule/arm64-apple-ios-simulator.swiftdoc
+
+SwiftDriverJobDiscovery normal arm64 Compiling PostCardView.swift, StoriesTrayView.swift (in target 'ImageCircle' from project 'ImageCircle')
+
+Copy /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Products/Debug-iphonesimulator/ImageCircle.swiftmodule/arm64-apple-ios-simulator.abi.json /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Intermediates.noindex/ImageCircle.build/Debug-iphonesimulator/ImageCircle.build/Objects-normal/arm64/ImageCircle.abi.json (in target 'ImageCircle' from project 'ImageCircle')
+    cd /Users/mattmarsh/Documents/PhotoCircle
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Intermediates.noindex/ImageCircle.build/Debug-iphonesimulator/ImageCircle.build/Objects-normal/arm64/ImageCircle.abi.json /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Products/Debug-iphonesimulator/ImageCircle.swiftmodule/arm64-apple-ios-simulator.abi.json
+
+Copy /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Products/Debug-iphonesimulator/ImageCircle.swiftmodule/Project/arm64-apple-ios-simulator.swiftsourceinfo /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Intermediates.noindex/ImageCircle.build/Debug-iphonesimulator/ImageCircle.build/Objects-normal/arm64/ImageCircle.swiftsourceinfo (in target 'ImageCircle' from project 'ImageCircle')
+    cd /Users/mattmarsh/Documents/PhotoCircle
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Intermediates.noindex/ImageCircle.build/Debug-iphonesimulator/ImageCircle.build/Objects-normal/arm64/ImageCircle.swiftsourceinfo /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Products/Debug-iphonesimulator/ImageCircle.swiftmodule/Project/arm64-apple-ios-simulator.swiftsourceinfo
+
+SwiftCompile normal arm64 Compiling\ AuthManager.swift /Users/mattmarsh/Documents/PhotoCircle/ImageCircle/Services/AuthManager.swift (in target 'ImageCircle' from project 'ImageCircle')
+
+SwiftCompile normal arm64 /Users/mattmarsh/Documents/PhotoCircle/ImageCircle/Services/AuthManager.swift (in target 'ImageCircle' from project 'ImageCircle')
+    cd /Users/mattmarsh/Documents/PhotoCircle
+    
+
+SwiftCompile normal arm64 Compiling\ ImageCircleApp.swift /Users/mattmarsh/Documents/PhotoCircle/ImageCircle/ImageCircleApp.swift (in target 'ImageCircle' from project 'ImageCircle')
+
+SwiftCompile normal arm64 /Users/mattmarsh/Documents/PhotoCircle/ImageCircle/ImageCircleApp.swift (in target 'ImageCircle' from project 'ImageCircle')
+    cd /Users/mattmarsh/Documents/PhotoCircle
+    
+
+SwiftDriverJobDiscovery normal arm64 Compiling MainTabView.swift (in target 'ImageCircle' from project 'ImageCircle')
+
+SwiftDriverJobDiscovery normal arm64 Compiling ImageCircleApp.swift (in target 'ImageCircle' from project 'ImageCircle')
+
+SwiftDriverJobDiscovery normal arm64 Compiling AuthManager.swift (in target 'ImageCircle' from project 'ImageCircle')
+
+SwiftDriverJobDiscovery normal arm64 Compiling ViewExtensions.swift, AdminView.swift (in target 'ImageCircle' from project 'ImageCircle')
+
+SwiftCompile normal arm64 Compiling\ SettingsView.swift /Users/mattmarsh/Documents/PhotoCircle/ImageCircle/Views/Profile/SettingsView.swift (in target 'ImageCircle' from project 'ImageCircle')
+
+SwiftCompile normal arm64 /Users/mattmarsh/Documents/PhotoCircle/ImageCircle/Views/Profile/SettingsView.swift (in target 'ImageCircle' from project 'ImageCircle')
+    cd /Users/mattmarsh/Documents/PhotoCircle
+    
+
+SwiftDriverJobDiscovery normal arm64 Compiling TextPostComposerView.swift, HomeView.swift (in target 'ImageCircle' from project 'ImageCircle')
+
+SwiftDriverJobDiscovery normal arm64 Compiling ProfileView.swift (in target 'ImageCircle' from project 'ImageCircle')
+
+SwiftDriverJobDiscovery normal arm64 Compiling StoryViewerView.swift, LoginView.swift (in target 'ImageCircle' from project 'ImageCircle')
+
+SwiftCompile normal arm64 Compiling\ Story.swift /Users/mattmarsh/Documents/PhotoCircle/ImageCircle/Models/Story.swift (in target 'ImageCircle' from project 'ImageCircle')
+
+SwiftCompile normal arm64 /Users/mattmarsh/Documents/PhotoCircle/ImageCircle/Models/Story.swift (in target 'ImageCircle' from project 'ImageCircle')
+    cd /Users/mattmarsh/Documents/PhotoCircle
+    
+
+SwiftCompile normal arm64 Compiling\ ForcePasswordChangeView.swift /Users/mattmarsh/Documents/PhotoCircle/ImageCircle/Views/Login/ForcePasswordChangeView.swift (in target 'ImageCircle' from project 'ImageCircle')
+
+SwiftCompile normal arm64 /Users/mattmarsh/Documents/PhotoCircle/ImageCircle/Views/Login/ForcePasswordChangeView.swift (in target 'ImageCircle' from project 'ImageCircle')
+    cd /Users/mattmarsh/Documents/PhotoCircle
+    
+
+SwiftCompile normal arm64 Compiling\ User.swift /Users/mattmarsh/Documents/PhotoCircle/ImageCircle/Models/User.swift (in target 'ImageCircle' from project 'ImageCircle')
+
+SwiftCompile normal arm64 /Users/mattmarsh/Documents/PhotoCircle/ImageCircle/Models/User.swift (in target 'ImageCircle' from project 'ImageCircle')
+    cd /Users/mattmarsh/Documents/PhotoCircle
+    
+
+SwiftCompile normal arm64 Compiling\ Post.swift /Users/mattmarsh/Documents/PhotoCircle/ImageCircle/Models/Post.swift (in target 'ImageCircle' from project 'ImageCircle')
+
+SwiftCompile normal arm64 /Users/mattmarsh/Documents/PhotoCircle/ImageCircle/Models/Post.swift (in target 'ImageCircle' from project 'ImageCircle')
+    cd /Users/mattmarsh/Documents/PhotoCircle
+    
+
+SwiftCompile normal arm64 Compiling\ KeychainHelper.swift /Users/mattmarsh/Documents/PhotoCircle/ImageCircle/Services/KeychainHelper.swift (in target 'ImageCircle' from project 'ImageCircle')
+
+SwiftCompile normal arm64 /Users/mattmarsh/Documents/PhotoCircle/ImageCircle/Services/KeychainHelper.swift (in target 'ImageCircle' from project 'ImageCircle')
+    cd /Users/mattmarsh/Documents/PhotoCircle
+    
+
+SwiftCompile normal arm64 Compiling\ DateExtensions.swift /Users/mattmarsh/Documents/PhotoCircle/ImageCircle/Utilities/DateExtensions.swift (in target 'ImageCircle' from project 'ImageCircle')
+
+SwiftCompile normal arm64 /Users/mattmarsh/Documents/PhotoCircle/ImageCircle/Utilities/DateExtensions.swift (in target 'ImageCircle' from project 'ImageCircle')
+    cd /Users/mattmarsh/Documents/PhotoCircle
+    
+
+SwiftCompile normal arm64 Compiling\ Comment.swift /Users/mattmarsh/Documents/PhotoCircle/ImageCircle/Models/Comment.swift (in target 'ImageCircle' from project 'ImageCircle')
+
+SwiftCompile normal arm64 /Users/mattmarsh/Documents/PhotoCircle/ImageCircle/Models/Comment.swift (in target 'ImageCircle' from project 'ImageCircle')
+    cd /Users/mattmarsh/Documents/PhotoCircle
+    
+
+SwiftDriverJobDiscovery normal arm64 Compiling Story.swift (in target 'ImageCircle' from project 'ImageCircle')
+
+SwiftCompile normal arm64 Compiling\ ChangePasswordView.swift /Users/mattmarsh/Documents/PhotoCircle/ImageCircle/Views/Profile/ChangePasswordView.swift (in target 'ImageCircle' from project 'ImageCircle')
+
+SwiftCompile normal arm64 /Users/mattmarsh/Documents/PhotoCircle/ImageCircle/Views/Profile/ChangePasswordView.swift (in target 'ImageCircle' from project 'ImageCircle')
+    cd /Users/mattmarsh/Documents/PhotoCircle
+    
+
+SwiftDriverJobDiscovery normal arm64 Compiling User.swift (in target 'ImageCircle' from project 'ImageCircle')
+
+SwiftDriverJobDiscovery normal arm64 Compiling KeychainHelper.swift (in target 'ImageCircle' from project 'ImageCircle')
+
+SwiftDriverJobDiscovery normal arm64 Compiling DateExtensions.swift (in target 'ImageCircle' from project 'ImageCircle')
+
+SwiftDriverJobDiscovery normal arm64 Compiling Post.swift (in target 'ImageCircle' from project 'ImageCircle')
+
+SwiftDriverJobDiscovery normal arm64 Compiling SettingsView.swift (in target 'ImageCircle' from project 'ImageCircle')
+
+SwiftDriverJobDiscovery normal arm64 Compiling ForcePasswordChangeView.swift (in target 'ImageCircle' from project 'ImageCircle')
+
+SwiftDriverJobDiscovery normal arm64 Compiling Comment.swift (in target 'ImageCircle' from project 'ImageCircle')
+
+SwiftDriverJobDiscovery normal arm64 Compiling ChangePasswordView.swift (in target 'ImageCircle' from project 'ImageCircle')
+
+SwiftDriverJobDiscovery normal arm64 Compiling CameraView.swift, MediaPreviewView.swift (in target 'ImageCircle' from project 'ImageCircle')
+
+SwiftDriver\ Compilation ImageCircle normal arm64 com.apple.xcode.tools.swift.compiler (in target 'ImageCircle' from project 'ImageCircle')
+    cd /Users/mattmarsh/Documents/PhotoCircle
+    builtin-Swift-Compilation -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name ImageCircle -Onone -enforce-exclusivity\=checked @/Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Intermediates.noindex/ImageCircle.build/Debug-iphonesimulator/ImageCircle.build/Objects-normal/arm64/ImageCircle.SwiftFileList -DDEBUG -default-isolation\=MainActor -enable-bare-slash-regex -enable-upcoming-feature DisableOutwardActorInference -enable-upcoming-feature InferSendableFromCaptures -enable-upcoming-feature GlobalActorIsolatedTypesUsability -enable-upcoming-feature MemberImportVisibility -enable-upcoming-feature InferIsolatedConformances -enable-upcoming-feature NonisolatedNonsendingByDefault -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.1.sdk -target arm64-apple-ios17.0-simulator -g -module-cache-path /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ModuleCache.noindex -Xfrontend -serialize-debugging-options -enable-testing -index-store-path /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Index.noindex/DataStore -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 5 -I /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Products/Debug-iphonesimulator -F /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Products/Debug-iphonesimulator/PackageFrameworks -F /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Products/Debug-iphonesimulator -emit-localized-strings -emit-localized-strings-path /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Intermediates.noindex/ImageCircle.build/Debug-iphonesimulator/ImageCircle.build/Objects-normal/arm64 -c -j8 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /Users/mattmarsh/Library/Developer/Xcode/DerivedData/SDKStatCaches.noindex/iphonesimulator26.1-23B77-90cf18a4295e390e64c810bc6bd7acbc.sdkstatcache -output-file-map /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Intermediates.noindex/ImageCircle.build/Debug-iphonesimulator/ImageCircle.build/Objects-normal/arm64/ImageCircle-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -clang-scanner-module-cache-path /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ModuleCache.noindex -sdk-module-cache-path /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ModuleCache.noindex -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Intermediates.noindex/ImageCircle.build/Debug-iphonesimulator/ImageCircle.build/Objects-normal/arm64/ImageCircle.swiftmodule -validate-clang-modules-once -clang-build-session-file /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ModuleCache.noindex/Session.modulevalidation -Xcc -I/Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Intermediates.noindex/ImageCircle.build/Debug-iphonesimulator/ImageCircle.build/swift-overrides.hmap -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Intermediates.noindex/ImageCircle.build/Debug-iphonesimulator/ImageCircle.build/Objects-normal/arm64/ImageCircle_const_extract_protocols.json -Xcc -iquote -Xcc /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Intermediates.noindex/ImageCircle.build/Debug-iphonesimulator/ImageCircle.build/ImageCircle-generated-files.hmap -Xcc -I/Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Intermediates.noindex/ImageCircle.build/Debug-iphonesimulator/ImageCircle.build/ImageCircle-own-target-headers.hmap -Xcc -I/Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Intermediates.noindex/ImageCircle.build/Debug-iphonesimulator/ImageCircle.build/ImageCircle-all-non-framework-target-headers.hmap -Xcc -ivfsoverlay -Xcc /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Intermediates.noindex/ImageCircle.build/Debug-iphonesimulator/ImageCircle-8a4febc6aee9f6d659445b68772d1ca5-VFS-iphonesimulator/all-product-headers.yaml -Xcc -iquote -Xcc /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Intermediates.noindex/ImageCircle.build/Debug-iphonesimulator/ImageCircle.build/ImageCircle-project-headers.hmap -Xcc -I/Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Products/Debug-iphonesimulator/include -Xcc -I/Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Intermediates.noindex/ImageCircle.build/Debug-iphonesimulator/ImageCircle.build/DerivedSources-normal/arm64 -Xcc -I/Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Intermediates.noindex/ImageCircle.build/Debug-iphonesimulator/ImageCircle.build/DerivedSources/arm64 -Xcc -I/Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Intermediates.noindex/ImageCircle.build/Debug-iphonesimulator/ImageCircle.build/DerivedSources -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Intermediates.noindex/ImageCircle.build/Debug-iphonesimulator/ImageCircle.build/Objects-normal/arm64/ImageCircle-Swift.h -working-directory /Users/mattmarsh/Documents/PhotoCircle -experimental-emit-module-separately -disable-cmo
+
+Ld /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Products/Debug-iphonesimulator/ImageCircle.app/ImageCircle.debug.dylib normal (in target 'ImageCircle' from project 'ImageCircle')
+    cd /Users/mattmarsh/Documents/PhotoCircle
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -Xlinker -reproducible -target arm64-apple-ios17.0-simulator -dynamiclib -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.1.sdk -O0 -L/Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Intermediates.noindex/EagerLinkingTBDs/Debug-iphonesimulator -L/Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Products/Debug-iphonesimulator -F/Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Intermediates.noindex/EagerLinkingTBDs/Debug-iphonesimulator -F/Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Products/Debug-iphonesimulator/PackageFrameworks -F/Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Products/Debug-iphonesimulator -filelist /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Intermediates.noindex/ImageCircle.build/Debug-iphonesimulator/ImageCircle.build/Objects-normal/arm64/ImageCircle.LinkFileList -install_name @rpath/ImageCircle.debug.dylib -Xlinker -rpath -Xlinker /usr/lib/swift -Xlinker -rpath -Xlinker /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Products/Debug-iphonesimulator/PackageFrameworks -Xlinker -rpath -Xlinker @executable_path/Frameworks -dead_strip -Xlinker -object_path_lto -Xlinker /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Intermediates.noindex/ImageCircle.build/Debug-iphonesimulator/ImageCircle.build/Objects-normal/arm64/ImageCircle_lto.o -rdynamic -Xlinker -no_deduplicate -Xlinker -objc_abi_version -Xlinker 2 -Xlinker -dependency_info -Xlinker /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Intermediates.noindex/ImageCircle.build/Debug-iphonesimulator/ImageCircle.build/Objects-normal/arm64/ImageCircle_dependency_info.dat -fobjc-link-runtime -L/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/iphonesimulator -L/usr/lib/swift -Xlinker -add_ast_path -Xlinker /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Intermediates.noindex/ImageCircle.build/Debug-iphonesimulator/ImageCircle.build/Objects-normal/arm64/ImageCircle.swiftmodule @/Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Intermediates.noindex/ImageCircle.build/Debug-iphonesimulator/ImageCircle.build/Objects-normal/arm64/ImageCircle-linker-args.resp -Wl,-no_warn_duplicate_libraries -Xlinker -alias -Xlinker _main -Xlinker ___debug_main_executable_dylib_entry_point -o /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Products/Debug-iphonesimulator/ImageCircle.app/ImageCircle.debug.dylib -Xlinker -add_ast_path -Xlinker /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Intermediates.noindex/Kingfisher.build/Debug-iphonesimulator/Kingfisher.build/Objects-normal/arm64/Kingfisher.swiftmodule @/Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Intermediates.noindex/Kingfisher.build/Debug-iphonesimulator/Kingfisher.build/Objects-normal/arm64/Kingfisher-linker-args.resp
+
+ConstructStubExecutorLinkFileList /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Intermediates.noindex/ImageCircle.build/Debug-iphonesimulator/ImageCircle.build/ImageCircle-ExecutorLinkFileList-normal-arm64.txt (in target 'ImageCircle' from project 'ImageCircle')
+    cd /Users/mattmarsh/Documents/PhotoCircle
+    construct-stub-executor-link-file-list /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Products/Debug-iphonesimulator/ImageCircle.app/ImageCircle.debug.dylib /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/lib/libPreviewsJITStubExecutor_no_swift_entry_point.a /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/lib/libPreviewsJITStubExecutor.a --output /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Intermediates.noindex/ImageCircle.build/Debug-iphonesimulator/ImageCircle.build/ImageCircle-ExecutorLinkFileList-normal-arm64.txt
+note: Using stub executor library with Swift entry point. (in target 'ImageCircle' from project 'ImageCircle')
+
+Ld /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Products/Debug-iphonesimulator/ImageCircle.app/ImageCircle normal (in target 'ImageCircle' from project 'ImageCircle')
+    cd /Users/mattmarsh/Documents/PhotoCircle
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -Xlinker -reproducible -target arm64-apple-ios17.0-simulator -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.1.sdk -O0 -L/Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Products/Debug-iphonesimulator -F/Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Products/Debug-iphonesimulator/PackageFrameworks -F/Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Products/Debug-iphonesimulator -Xlinker -rpath -Xlinker @executable_path -Xlinker -rpath -Xlinker /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Products/Debug-iphonesimulator/PackageFrameworks -Xlinker -rpath -Xlinker @executable_path/Frameworks -rdynamic -Xlinker -no_deduplicate -Xlinker -objc_abi_version -Xlinker 2 -e ___debug_blank_executor_main -Xlinker -sectcreate -Xlinker __TEXT -Xlinker __debug_dylib -Xlinker /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Intermediates.noindex/ImageCircle.build/Debug-iphonesimulator/ImageCircle.build/ImageCircle-DebugDylibPath-normal-arm64.txt -Xlinker -sectcreate -Xlinker __TEXT -Xlinker __debug_instlnm -Xlinker /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Intermediates.noindex/ImageCircle.build/Debug-iphonesimulator/ImageCircle.build/ImageCircle-DebugDylibInstallName-normal-arm64.txt -Xlinker -filelist -Xlinker /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Intermediates.noindex/ImageCircle.build/Debug-iphonesimulator/ImageCircle.build/ImageCircle-ExecutorLinkFileList-normal-arm64.txt /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Products/Debug-iphonesimulator/ImageCircle.app/ImageCircle.debug.dylib -o /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Products/Debug-iphonesimulator/ImageCircle.app/ImageCircle
+
+ExtractAppIntentsMetadata (in target 'ImageCircle' from project 'ImageCircle')
+    cd /Users/mattmarsh/Documents/PhotoCircle
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/appintentsmetadataprocessor --toolchain-dir /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain --module-name ImageCircle --sdk-root /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.1.sdk --xcode-version 17B100 --platform-family iOS --deployment-target 17.0 --bundle-identifier com.mattmarsh.imagecircle --output /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Products/Debug-iphonesimulator/ImageCircle.app --target-triple arm64-apple-ios17.0-simulator --binary-file /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Products/Debug-iphonesimulator/ImageCircle.app/ImageCircle --dependency-file /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Intermediates.noindex/ImageCircle.build/Debug-iphonesimulator/ImageCircle.build/Objects-normal/arm64/ImageCircle_dependency_info.dat --stringsdata-file /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Intermediates.noindex/ImageCircle.build/Debug-iphonesimulator/ImageCircle.build/Objects-normal/arm64/ExtractedAppShortcutsMetadata.stringsdata --source-file-list /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Intermediates.noindex/ImageCircle.build/Debug-iphonesimulator/ImageCircle.build/Objects-normal/arm64/ImageCircle.SwiftFileList --metadata-file-list /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Intermediates.noindex/ImageCircle.build/Debug-iphonesimulator/ImageCircle.build/ImageCircle.DependencyMetadataFileList --static-metadata-file-list /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Intermediates.noindex/ImageCircle.build/Debug-iphonesimulator/ImageCircle.build/ImageCircle.DependencyStaticMetadataFileList --swift-const-vals-list /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Intermediates.noindex/ImageCircle.build/Debug-iphonesimulator/ImageCircle.build/Objects-normal/arm64/ImageCircle.SwiftConstValuesFileList --compile-time-extraction --deployment-aware-processing --validate-assistant-intents --no-app-shortcuts-localization
+2026-06-14 11:11:03.558 appintentsmetadataprocessor[37886:22300394] Starting appintentsmetadataprocessor export
+2026-06-14 11:11:03.562 appintentsmetadataprocessor[37886:22300394] warning: Metadata extraction skipped. No AppIntents.framework dependency found.
+
+CopySwiftLibs /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Products/Debug-iphonesimulator/ImageCircle.app (in target 'ImageCircle' from project 'ImageCircle')
+    cd /Users/mattmarsh/Documents/PhotoCircle
+    builtin-swiftStdLibTool --copy --verbose --scan-executable /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Products/Debug-iphonesimulator/ImageCircle.app/ImageCircle.debug.dylib --scan-folder /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Products/Debug-iphonesimulator/ImageCircle.app/Frameworks --scan-folder /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Products/Debug-iphonesimulator/ImageCircle.app/PlugIns --scan-folder /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Products/Debug-iphonesimulator/ImageCircle.app/SystemExtensions --scan-folder /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Products/Debug-iphonesimulator/ImageCircle.app/Extensions --platform iphonesimulator --toolchain /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain --destination /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Products/Debug-iphonesimulator/ImageCircle.app/Frameworks --strip-bitcode --strip-bitcode-tool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/bitcode_strip --emit-dependency-info /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Intermediates.noindex/ImageCircle.build/Debug-iphonesimulator/ImageCircle.build/SwiftStdLibToolInputDependencies.dep --filter-for-swift-os
+Ignoring --strip-bitcode because --sign was not passed
+
+ProcessInfoPlistFile /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Products/Debug-iphonesimulator/ImageCircle.app/Info.plist /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Intermediates.noindex/ImageCircle.build/Debug-iphonesimulator/ImageCircle.build/empty-ImageCircle.plist (in target 'ImageCircle' from project 'ImageCircle')
+    cd /Users/mattmarsh/Documents/PhotoCircle
+    builtin-infoPlistUtility /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Intermediates.noindex/ImageCircle.build/Debug-iphonesimulator/ImageCircle.build/empty-ImageCircle.plist -producttype com.apple.product-type.application -genpkginfo /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Products/Debug-iphonesimulator/ImageCircle.app/PkgInfo -expandbuildsettings -format binary -platform iphonesimulator -additionalcontentfile /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Intermediates.noindex/ImageCircle.build/Debug-iphonesimulator/ImageCircle.build/assetcatalog_generated_info.plist -scanforprivacyfile /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Products/Debug-iphonesimulator/ImageCircle.app/Kingfisher_Kingfisher.bundle -o /Users/mattmarsh/Library/Developer/Xcode/DerivedData/ImageCircle-czqdakxoukvteegpigeuqurcvndb/Build/Products/Debug-iphonesimulator/ImageCircle.app/Info.plist
+
+** BUILD SUCCEEDED **
+
