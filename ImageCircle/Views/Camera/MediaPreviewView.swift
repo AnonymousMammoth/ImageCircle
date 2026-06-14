@@ -159,23 +159,38 @@ struct MediaPreviewView: View {
         Task {
             do {
                 if asFeed, let image = image {
+                    uploadProgress = 0.1
                     let data = try await compressPhoto(image)
-                    uploadProgress = 0.5
-                    _ = try await APIClient.shared.createPost(caption: caption, imageData: data)
+                    uploadProgress = 0.2
+                    _ = try await APIClient.shared.createPost(caption: caption, imageData: data) { progress in
+                        Task { @MainActor in
+                            self.uploadProgress = 0.2 + 0.8 * progress
+                        }
+                    }
                 } else if let image = image {
+                    uploadProgress = 0.1
                     let data = try await compressPhoto(image)
-                    uploadProgress = 0.5
-                    _ = try await APIClient.shared.createStory(mediaType: "image", mediaData: data, mediaFilename: "story.jpg")
+                    uploadProgress = 0.2
+                    _ = try await APIClient.shared.createStory(mediaType: "image", mediaData: data, mediaFilename: "story.jpg") { progress in
+                        Task { @MainActor in
+                            self.uploadProgress = 0.2 + 0.8 * progress
+                        }
+                    }
                 } else if let videoURL = videoURL {
+                    uploadProgress = 0.1
                     let (videoData, thumbnailData) = try await compressVideo(videoURL)
-                    uploadProgress = 0.6
+                    uploadProgress = 0.2
                     _ = try await APIClient.shared.createStory(
                         mediaType: "video",
                         mediaData: videoData,
                         mediaFilename: "story.mp4",
                         thumbnailData: thumbnailData,
                         thumbnailFilename: "thumb.jpg"
-                    )
+                    ) { progress in
+                        Task { @MainActor in
+                            self.uploadProgress = 0.2 + 0.8 * progress
+                        }
+                    }
                 }
                 uploadProgress = 1.0
                 isUploading = false

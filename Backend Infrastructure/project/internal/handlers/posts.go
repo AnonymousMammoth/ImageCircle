@@ -75,8 +75,9 @@ func (h *PostHandler) CreatePost(c *gin.Context) {
 		}
 		caption = strings.TrimSpace(req.Caption)
 	} else if strings.HasPrefix(contentType, "multipart/form-data") {
-		// Parse multipart form with max size limit
-		if err := c.Request.ParseMultipartForm(h.MaxSize); err != nil {
+		// Parse multipart form. The argument is the in-memory budget; larger files spill to temp files.
+		const multipartMemoryLimit = 8 << 20 // 8 MB
+		if err := c.Request.ParseMultipartForm(multipartMemoryLimit); err != nil {
 			utils.RespondError(c, http.StatusBadRequest, "failed to parse form")
 			return
 		}

@@ -151,6 +151,7 @@ func main() {
 		auth.PUT("/api/users/me", userHandler.UpdateMe)
 		auth.POST("/api/users/me/avatar", userHandler.UpdateAvatar)
 		auth.GET("/api/users/:id/posts", userHandler.GetUserPosts)
+		auth.GET("/api/users/:id/stories", userHandler.GetUserStories)
 		auth.GET("/api/users", middleware.AdminRequired(), userHandler.ListUsers)
 		auth.POST("/api/users", middleware.AdminRequired(), userHandler.CreateUser)
 		auth.DELETE("/api/users/:id", middleware.AdminRequired(), userHandler.DeleteUser)

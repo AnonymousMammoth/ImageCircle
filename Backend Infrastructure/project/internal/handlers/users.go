@@ -395,6 +395,34 @@ func (h *UserHandler) UpdateAvatar(c *gin.Context) {
 	utils.RespondJSON(c, http.StatusOK, user)
 }
 
+// GetUserStories returns active stories for a specific user.
+func (h *UserHandler) GetUserStories(c *gin.Context) {
+	requestingUserID := c.GetInt64("user_id")
+
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		utils.RespondError(c, http.StatusBadRequest, "invalid id")
+		return
+	}
+
+	if _, err := models.GetUserByID(h.DB, id); err != nil {
+		if err == sql.ErrNoRows {
+			utils.RespondError(c, http.StatusNotFound, "user not found")
+			return
+		}
+		utils.RespondError(c, http.StatusInternalServerError, "failed to retrieve user")
+		return
+	}
+
+	stories, err := models.GetStoriesByUser(h.DB, id, requestingUserID)
+	if err != nil {
+		utils.RespondError(c, http.StatusInternalServerError, "failed to retrieve stories")
+		return
+	}
+
+	utils.RespondJSON(c, http.StatusOK, gin.H{"stories": stories})
+}
+
 // GetStats returns platform statistics (admin only).
 func (h *UserHandler) GetStats(c *gin.Context) {
 	if !c.GetBool("is_admin") {

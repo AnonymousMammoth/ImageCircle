@@ -69,6 +69,7 @@ final class APIClient {
     private let jsonEncoder: JSONEncoder
     private let session: URLSession
     private let uploadSession: URLSession
+    private let uploadDelegate = UploadDelegate()
     
     private init() {
         let decoder = JSONDecoder()
@@ -89,7 +90,7 @@ final class APIClient {
         let uploadConfig = URLSessionConfiguration.default
         uploadConfig.timeoutIntervalForRequest = 120
         uploadConfig.timeoutIntervalForResource = 300
-        self.uploadSession = URLSession(configuration: uploadConfig)
+        self.uploadSession = URLSession(configuration: uploadConfig, delegate: uploadDelegate, delegateQueue: OperationQueue())
     }
     
     // MARK: - Base URL
@@ -214,6 +215,32 @@ final class APIClient {
         }
     }
     
+    private func upload<T: Decodable>(_ request: URLRequest, fromFile fileURL: URL, progress: (@Sendable (Double) -> Void)? = nil) async throws -> T {
+        let taskBox = TaskBox()
+        
+        do {
+            let (data, response) = try await withTaskCancellationHandler {
+                try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<(Data, URLResponse), Error>) in
+                    let task = uploadSession.uploadTask(with: request, fromFile: fileURL)
+                    taskBox.task = task
+                    uploadDelegate.setProgressHandler(progress, for: task)
+                    uploadDelegate.setCompletion(continuation, for: task)
+                    task.resume()
+                }
+            } onCancel: {
+                taskBox.task?.cancel()
+            }
+            return try await handleResponse(data: data, response: response)
+        } catch {
+            if Task.isCancelled { throw APIError.cancelled }
+            throw error
+        }
+    }
+    
+    private final class TaskBox {
+        var task: URLSessionTask?
+    }
+    
     private struct EmptyResponse: Decodable {}
     
     private struct PostsResponse: Codable {
@@ -279,12 +306,14 @@ final class APIClient {
         return response.posts
     }
 
-    func updateAvatar(imageData: Data, filename: String = "avatar.jpg") async throws -> User {
+    func updateAvatar(imageData: Data, filename: String = "avatar.jpg", progress: (@Sendable (Double) -> Void)? = nil) async throws -> User {
         let url = try apiURL(path: "users/me/avatar")
         let boundary = UUID().uuidString
         var req = request(for: url, method: "POST", contentType: "multipart/form-data; boundary=\(boundary)")
-        req.httpBody = buildMultipartBody(boundary: boundary, fields: [:], fileData: imageData, fileField: "avatar", filename: filename, mimeType: "image/jpeg")
-        return try await perform(req, session: uploadSession)
+        let body = buildMultipartBody(boundary: boundary, fields: [:], fileData: imageData, fileField: "avatar", filename: filename, mimeType: "image/jpeg")
+        let (fileURL, cleanup) = try writeToTempFile(data: body, name: "upload-\(boundary).body")
+        defer { cleanup() }
+        return try await upload(req, fromFile: fileURL, progress: progress)
     }
     
     // MARK: - Feed & Posts
@@ -322,6 +351,13 @@ final class APIClient {
     
     func fetchStories() async throws -> [Story] {
         let url = try apiURL(path: "stories")
+        let req = request(for: url)
+        let response: StoriesResponse = try await perform(req)
+        return response.stories
+    }
+
+    func fetchStories(userID: Int) async throws -> [Story] {
+        let url = try apiURL(path: "users/\(userID)/stories")
         let req = request(for: url)
         let response: StoriesResponse = try await perform(req)
         return response.stories
@@ -385,13 +421,21 @@ final class APIClient {
     
     // MARK: - Multipart Uploads
     
-    /// Uploads a compressed photo to the feed.
-    func createPost(caption: String?, imageData: Data, filename: String = "image.jpg") async throws -> Post {
+    /// Uploads a compressed photo to the feed with optional progress reporting (0.0...1.0).
+    func createPost(caption: String?, imageData: Data, filename: String = "image.jpg", progress: (@Sendable (Double) -> Void)? = nil) async throws -> Post {
         let url = try apiURL(path: "posts")
         let boundary = UUID().uuidString
         var req = request(for: url, method: "POST", contentType: "multipart/form-data; boundary=\(boundary)")
-        req.httpBody = buildMultipartBody(boundary: boundary, fields: ["caption": caption ?? ""], fileData: imageData, fileField: "media", filename: filename, mimeType: "image/jpeg")
-        return try await perform(req, session: uploadSession)
+        let body = buildMultipartBody(boundary: boundary, fields: ["caption": caption ?? ""], fileData: imageData, fileField: "media", filename: filename, mimeType: "image/jpeg")
+        let (fileURL, cleanup) = try writeToTempFile(data: body, name: "upload-\(boundary).body")
+        defer { cleanup() }
+        return try await upload(req, fromFile: fileURL, progress: progress)
+    }
+    
+    private func writeToTempFile(data: Data, name: String) throws -> (URL, () -> Void) {
+        let fileURL = FileManager.default.temporaryDirectory.appendingPathComponent(name)
+        try data.write(to: fileURL, options: .atomic)
+        return (fileURL, { try? FileManager.default.removeItem(at: fileURL) })
     }
     
     /// Creates a text-only post.
@@ -405,8 +449,8 @@ final class APIClient {
         return try await perform(req, session: uploadSession)
     }
     
-    /// Uploads a story image or video with optional thumbnail.
-    func createStory(mediaType: String, mediaData: Data, mediaFilename: String, thumbnailData: Data? = nil, thumbnailFilename: String? = nil) async throws -> Story {
+    /// Uploads a story image or video with optional thumbnail and optional progress reporting.
+    func createStory(mediaType: String, mediaData: Data, mediaFilename: String, thumbnailData: Data? = nil, thumbnailFilename: String? = nil, progress: (@Sendable (Double) -> Void)? = nil) async throws -> Story {
         let url = try apiURL(path: "stories")
         let boundary = UUID().uuidString
         var req = request(for: url, method: "POST", contentType: "multipart/form-data; boundary=\(boundary)")
@@ -434,8 +478,9 @@ final class APIClient {
         }
         
         body.appendString("--\(boundary)--\r\n")
-        req.httpBody = body
-        return try await perform(req, session: uploadSession)
+        let (fileURL, cleanup) = try writeToTempFile(data: body, name: "upload-\(boundary).body")
+        defer { cleanup() }
+        return try await upload(req, fromFile: fileURL, progress: progress)
     }
     
     private func buildMultipartBody(boundary: String, fields: [String: String], fileData: Data, fileField: String, filename: String, mimeType: String) -> Data {
@@ -477,6 +522,72 @@ private extension Data {
     mutating func appendString(_ string: String) {
         if let data = string.data(using: .utf8) {
             append(data)
+        }
+    }
+}
+
+// MARK: - Upload Delegate
+
+/// Delegate that reports upload progress and captures the response for async upload tasks.
+private final class UploadDelegate: NSObject, URLSessionTaskDelegate, URLSessionDataDelegate {
+    private var progressHandlers: [Int: @Sendable (Double) -> Void] = [:]
+    private var completions: [Int: CheckedContinuation<(Data, URLResponse), Error>] = [:]
+    private var responseData: [Int: Data] = [:]
+    private let lock = NSLock()
+    
+    func setProgressHandler(_ handler: (@Sendable (Double) -> Void)?, for task: URLSessionTask) {
+        lock.lock()
+        defer { lock.unlock() }
+        progressHandlers[task.taskIdentifier] = handler
+    }
+    
+    func setCompletion(_ completion: CheckedContinuation<(Data, URLResponse), Error>?, for task: URLSessionTask) {
+        lock.lock()
+        defer { lock.unlock() }
+        if let completion = completion {
+            completions[task.taskIdentifier] = completion
+            responseData[task.taskIdentifier] = Data()
+        } else {
+            completions.removeValue(forKey: task.taskIdentifier)
+            responseData.removeValue(forKey: task.taskIdentifier)
+            progressHandlers.removeValue(forKey: task.taskIdentifier)
+        }
+    }
+    
+    func urlSession(_ session: URLSession, task: URLSessionTask, didSendBodyData bytesSent: Int64, totalBytesSent: Int64, totalBytesExpectedToSend: Int64) {
+        guard totalBytesExpectedToSend > 0 else { return }
+        let progress = Double(totalBytesSent) / Double(totalBytesExpectedToSend)
+        lock.lock()
+        let handler = progressHandlers[task.taskIdentifier]
+        lock.unlock()
+        handler?(progress)
+    }
+    
+    func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
+        lock.lock()
+        responseData[dataTask.taskIdentifier]?.append(data)
+        let hasCompletion = completions[dataTask.taskIdentifier] != nil
+        lock.unlock()
+        if !hasCompletion {
+            dataTask.cancel()
+        }
+    }
+    
+    func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+        lock.lock()
+        let completion = completions.removeValue(forKey: task.taskIdentifier)
+        let data = responseData.removeValue(forKey: task.taskIdentifier) ?? Data()
+        progressHandlers.removeValue(forKey: task.taskIdentifier)
+        lock.unlock()
+        
+        guard let completion = completion else { return }
+        
+        if let error = error {
+            completion.resume(throwing: error)
+        } else if let response = task.response {
+            completion.resume(returning: (data, response))
+        } else {
+            completion.resume(throwing: APIError.invalidResponse)
         }
     }
 }

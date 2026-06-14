@@ -68,6 +68,40 @@ func GetActiveStories(db *sql.DB, requestingUserID int64) ([]*Story, error) {
 	return scanStories(rows, requestingUserID)
 }
 
+// GetStoriesByUser retrieves active stories for a specific user.
+func GetStoriesByUser(db *sql.DB, userID, requestingUserID int64) ([]*Story, error) {
+	query := `
+		SELECT
+			s.id, s.user_id, s.media_filename, s.thumbnail_filename, s.media_type, s.created_at, s.expires_at,
+			u.id, u.username, u.display_name, u.password_hash, u.is_admin, u.password_change_required, u.created_at,
+			(SELECT COUNT(*) FROM story_views WHERE story_id = s.id) AS view_count,
+			EXISTS(SELECT 1 FROM story_views WHERE story_id = s.id AND user_id = ?) AS viewed
+		FROM stories s
+		JOIN users u ON s.user_id = u.id
+		WHERE s.user_id = ?
+		  AND s.expires_at > datetime('now')
+		ORDER BY s.created_at DESC
+	`
+	rows, err := db.Query(query, requestingUserID, userID)
+	if err != nil {
+		return nil, fmt.Errorf("query user stories: %w", err)
+	}
+	defer rows.Close()
+
+	stories, err := scanStories(rows, requestingUserID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Own stories should always appear unviewed in the tray.
+	if userID == requestingUserID {
+		for _, s := range stories {
+			s.Viewed = false
+		}
+	}
+	return stories, nil
+}
+
 // GetStoryByID retrieves a story by primary key with user info.
 func GetStoryByID(db *sql.DB, id int64) (*Story, error) {
 	query := `

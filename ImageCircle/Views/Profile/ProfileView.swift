@@ -20,8 +20,14 @@ struct ProfileView: View {
     @State private var filter: FeedFilter = .mixed
     @State private var selectedPhotoItem: PhotosPickerItem?
     @State private var isUploadingAvatar = false
-    @State private var errorMessage: String?
-    @State private var showError = false
+    @State private var loadErrorMessage: String?
+    @State private var showLoadError = false
+    @State private var avatarErrorMessage: String?
+    @State private var showAvatarError = false
+    @State private var stories: [Story] = []
+    @State private var selectedStoryIndex: Int?
+    @State private var showStoryViewer = false
+    @State private var showCamera = false
     
     private var isCurrentUser: Bool {
         guard let user = user, let current = auth.currentUser else { return true }
@@ -42,6 +48,7 @@ struct ProfileView: View {
                 profileHeader
                 statsRow
                 filterPicker
+                storiesTray
                 Divider()
                 postGrid
             }
@@ -63,13 +70,29 @@ struct ProfileView: View {
         .sheet(item: $selectedPost) { post in
             ProfilePostDetailView(post: post)
         }
+        .fullScreenCover(isPresented: $showStoryViewer) {
+            if let index = selectedStoryIndex {
+                StoryViewerView(stories: stories, startIndex: index, isPresented: $showStoryViewer)
+            }
+        }
+        .sheet(isPresented: $showCamera) {
+            CameraView(onPostCreated: {
+                Task { await loadStories() }
+            })
+        }
         .task {
             await loadPosts()
+            await loadStories()
         }
         .onChange(of: auth.currentUser) { _ in
             Task { await loadPosts() }
         }
-        .alert("Error", isPresented: $showError, presenting: errorMessage) { _ in
+        .alert("Error", isPresented: $showLoadError, presenting: loadErrorMessage) { _ in
+            Button("OK") {}
+        } message: { message in
+            Text(message)
+        }
+        .alert("Avatar Error", isPresented: $showAvatarError, presenting: avatarErrorMessage) { _ in
             Button("OK") {}
         } message: { message in
             Text(message)
@@ -117,7 +140,8 @@ struct ProfileView: View {
                         .clipShape(Circle())
                 }
                 .disabled(isUploadingAvatar)
-                .onChange(of: selectedPhotoItem) { newItem in
+                .onChange(of: selectedPhotoItem) { _, newItem in
+                    selectedPhotoItem = nil
                     Task { await uploadAvatar(from: newItem) }
                 }
             }
@@ -138,6 +162,47 @@ struct ProfileView: View {
         }
     }
     
+    private var storiesTray: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 16) {
+                if isCurrentUser {
+                    addStoryButton
+                }
+                if !stories.isEmpty {
+                    StoriesTrayView(stories: stories) { story in
+                        if let index = stories.firstIndex(where: { $0.id == story.id }) {
+                            selectedStoryIndex = index
+                            showStoryViewer = true
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+        }
+    }
+    
+    private var addStoryButton: some View {
+        Button(action: { showCamera = true }) {
+            VStack(spacing: 6) {
+                ZStack {
+                    Circle()
+                        .stroke(Color.pink, lineWidth: 3)
+                        .frame(width: 60, height: 60)
+                    Image(systemName: "plus")
+                        .font(.title3.weight(.semibold))
+                        .foregroundStyle(.pink)
+                }
+                Text("Add Story")
+                    .font(.caption)
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                    .frame(width: 64)
+            }
+        }
+        .buttonStyle(.plain)
+    }
+    
     private var filterPicker: some View {
         Picker("Filter", selection: $filter) {
             ForEach(FeedFilter.allCases) { filterCase in
@@ -154,11 +219,14 @@ struct ProfileView: View {
                 Button(action: { selectedPost = post }) {
                     if post.isTextOnly {
                         textPostCell(for: post)
-                    } else if let filename = post.thumbnailFilename ?? post.mediaFilename,
+                    } else if let filename = effectiveThumbnailFilename(for: post),
                               let url = MediaURL.url(userID: post.user.id, filename: filename) {
                         KFImage(url)
                             .resizable()
                             .placeholder { Color(.systemGray4) }
+                            .onFailure { error in
+                                print("[KFImage] Failed to load \(url): \(error)")
+                            }
                             .aspectRatio(contentMode: .fill)
                             .frame(maxWidth: .infinity, minHeight: 0)
                             .aspectRatio(1, contentMode: .fill)
@@ -172,6 +240,16 @@ struct ProfileView: View {
                 .accessibilityLabel("View post \(post.id)")
             }
         }
+    }
+    
+    private func effectiveThumbnailFilename(for post: Post) -> String? {
+        if let thumbnail = post.thumbnailFilename, !thumbnail.isEmpty {
+            return thumbnail
+        }
+        if let media = post.mediaFilename, !media.isEmpty {
+            return media
+        }
+        return nil
     }
     
     private func textPostCell(for post: Post) -> some View {
@@ -209,9 +287,21 @@ struct ProfileView: View {
                 posts = feed.filter { $0.user.id == displayUser.id }
             } catch {
                 posts = []
-                errorMessage = error.localizedDescription
-                showError = true
+                if !Task.isCancelled {
+                    loadErrorMessage = error.localizedDescription
+                    showLoadError = true
+                }
             }
+        }
+    }
+    
+    private func loadStories() async {
+        guard let displayUser = displayUser else { return }
+        do {
+            stories = try await APIClient.shared.fetchStories(userID: displayUser.id)
+        } catch {
+            stories = []
+            // Non-fatal; don't alert the user for story load failures.
         }
     }
     
@@ -222,18 +312,52 @@ struct ProfileView: View {
         
         do {
             guard let data = try await item.loadTransferable(type: Data.self), !data.isEmpty else {
-                errorMessage = "Could not load selected photo."
-                showError = true
+                avatarErrorMessage = "Could not load selected photo."
+                showAvatarError = true
                 return
             }
-            _ = try await APIClient.shared.updateAvatar(imageData: data)
-            // Refresh current user to show new avatar
-            let updatedUser = try await APIClient.shared.fetchMe()
+            
+            // Compress/resize off the main actor to avoid blocking UI.
+            let compressed = try await Task.detached(priority: .userInitiated) {
+                compressImageForAvatar(data)
+            }.value
+            
+            guard !Task.isCancelled else { return }
+            
+            let updatedUser = try await APIClient.shared.updateAvatar(imageData: compressed)
+            
+            guard !Task.isCancelled else { return }
+            
+            // Clear cached avatar so the new one is fetched immediately.
+            if let oldFilename = auth.currentUser?.avatarFilename,
+               !oldFilename.isEmpty,
+               let oldURL = MediaURL.url(userID: updatedUser.id, filename: oldFilename) {
+                KingfisherManager.shared.cache.removeImage(forKey: oldURL.absoluteString)
+            }
+            
             auth.currentUser = updatedUser
+        } catch is CancellationError {
+            // Ignore cancellation; the request may have already completed on the server.
         } catch {
-            errorMessage = error.localizedDescription
-            showError = true
+            avatarErrorMessage = error.localizedDescription
+            showAvatarError = true
         }
+    }
+    
+    private func compressImageForAvatar(_ data: Data) -> Data {
+        guard let image = UIImage(data: data) else { return data }
+        let maxSize: CGFloat = 1024
+        let scale = min(maxSize / image.size.width, maxSize / image.size.height, 1.0)
+        let newSize = CGSize(width: image.size.width * scale, height: image.size.height * scale)
+        
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1.0
+        let renderer = UIGraphicsImageRenderer(size: newSize, format: format)
+        let resized = renderer.image { _ in
+            image.draw(in: CGRect(origin: .zero, size: newSize))
+        }
+        
+        return resized.jpegData(compressionQuality: 0.85) ?? data
     }
 }
 
