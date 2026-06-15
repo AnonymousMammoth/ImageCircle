@@ -28,7 +28,7 @@ struct MainTabView: View {
                 }
                 .tag(1)
             
-            CameraView(onFinished: { shouldRefresh in
+            CreateComposerView(onFinished: { shouldRefresh in
                 if shouldRefresh {
                     refreshFeedTrigger = UUID()
                 }

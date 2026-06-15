@@ -2,7 +2,7 @@
 //  StoryViewerView.swift
 //  ImageCircle
 //
-//  Full-screen ephemeral story viewer with progress, gestures, and auto-advance.
+//  Full-screen ephemeral story viewer with Instagram-style grouping and gestures.
 //
 
 import SwiftUI
@@ -11,9 +11,12 @@ import Combine
 import Kingfisher
 
 struct StoryViewerView: View {
-    let stories: [Story]
+    @State var groups: [StoryGroup]
     @Binding var isPresented: Bool
-    @State private var currentIndex: Int
+    let onStoriesChanged: () -> Void
+    
+    @State private var currentGroupIndex: Int
+    @State private var currentStoryIndex: Int
     @State private var progress: CGFloat = 0
     @State private var isPaused = false
     @State private var dragOffset: CGSize = .zero
@@ -24,15 +27,27 @@ struct StoryViewerView: View {
     @State private var photoElapsedBeforePause: CGFloat = 0
     @State private var isImageLoaded = false
     @State private var loadError: Error?
+    @State private var showDeleteConfirmation = false
+    @State private var isDeleting = false
     
     @StateObject private var videoState = VideoPlayerState()
     
     private let storyDuration: CGFloat = 5.0
     
-    init(stories: [Story], startIndex: Int, isPresented: Binding<Bool>) {
-        self.stories = stories
-        self._currentIndex = State(initialValue: startIndex)
+    init(groups: [StoryGroup], groupIndex: Int, storyIndex: Int, isPresented: Binding<Bool>, onStoriesChanged: @escaping () -> Void = {}) {
+        self._groups = State(initialValue: groups)
+        self._currentGroupIndex = State(initialValue: groupIndex)
+        self._currentStoryIndex = State(initialValue: storyIndex)
         self._isPresented = isPresented
+        self.onStoriesChanged = onStoriesChanged
+    }
+    
+    private var currentStory: Story? {
+        groups[safe: currentGroupIndex]?.stories[safe: currentStoryIndex]
+    }
+    
+    private var currentGroup: StoryGroup? {
+        groups[safe: currentGroupIndex]
     }
     
     var body: some View {
@@ -55,10 +70,12 @@ struct StoryViewerView: View {
             viewMarkingTask?.cancel()
             videoState.reset()
         }
-        .onChange(of: currentIndex) { _, _ in
-            progress = 0
-            isImageLoaded = false
-            loadError = nil
+        .onChange(of: currentStoryIndex) { _, _ in
+            resetStoryState()
+            setupCurrentStory()
+        }
+        .onChange(of: currentGroupIndex) { _, _ in
+            resetStoryState()
             setupCurrentStory()
         }
         .onChange(of: isPaused) { _, paused in
@@ -74,12 +91,28 @@ struct StoryViewerView: View {
                 nextStory()
             }
         }
+        .alert("Delete Story?", isPresented: $showDeleteConfirmation) {
+            Button("Cancel", role: .cancel) {}
+            Button("Delete", role: .destructive) {
+                deleteCurrentStory()
+            }
+        } message: {
+            Text("This cannot be undone.")
+        }
+    }
+    
+    private func resetStoryState() {
+        progress = 0
+        isImageLoaded = false
+        loadError = nil
     }
     
     @ViewBuilder
     private var content: some View {
-        if let story = stories[safe: currentIndex] {
-            if story.isImage {
+        if let story = currentStory {
+            if loadError != nil {
+                errorPlaceholder(message: "Could not load story")
+            } else if story.isImage {
                 if let url = story.resolvedMediaURL {
                     KFImage(url)
                         .resizable()
@@ -114,7 +147,7 @@ struct StoryViewerView: View {
                 errorPlaceholder(message: "Unknown story type")
             }
         } else {
-            Color.black
+            errorPlaceholder(message: "Story unavailable")
         }
     }
     
@@ -130,14 +163,17 @@ struct StoryViewerView: View {
     private func errorPlaceholder(message: String) -> some View {
         ZStack {
             Color.black
-            VStack(spacing: 12) {
+            VStack(spacing: 16) {
                 Image(systemName: "exclamationmark.triangle")
                     .font(.largeTitle)
                     .foregroundStyle(.white)
                 Text(message)
                     .foregroundStyle(.white)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal)
                 Button("Close") { isPresented = false }
                     .buttonStyle(.borderedProminent)
+                    .tint(.white)
             }
         }
     }
@@ -149,50 +185,110 @@ struct StoryViewerView: View {
                     .padding(.top, geo.safeAreaInsets.top + 8)
                     .padding(.horizontal, 12)
                 
-                HStack {
-                    tapZone(width: geo.size.width * 0.33, action: { previousStory() }, label: "Previous story")
-                    tapZone(width: geo.size.width * 0.67, action: { nextStory() }, label: "Next story")
-                }
-                .frame(maxHeight: .infinity)
+                topBar
+                    .padding(.top, geo.safeAreaInsets.top + 16)
+                    .padding(.horizontal, 12)
                 
                 VStack {
-                    HStack {
-                        closeButton
-                        Spacer()
-                    }
-                    .padding(.top, geo.safeAreaInsets.top + 8)
-                    .padding(.horizontal, 12)
-                    
                     Spacer()
-                    
-                    if let story = stories[safe: currentIndex] {
-                        HStack(spacing: 10) {
-                            avatarView(for: story.user)
+                    HStack(spacing: 10) {
+                        if let user = currentGroup?.user {
+                            avatarView(for: user)
                                 .frame(width: 36, height: 36)
-                            Text(story.user.username)
+                            Text(user.username)
                                 .font(.subheadline.weight(.semibold))
                                 .foregroundStyle(.white)
                                 .shadow(radius: 4)
-                            Spacer()
                         }
-                        .padding(.horizontal, 16)
-                        .padding(.bottom, geo.safeAreaInsets.bottom + 24)
+                        Spacer()
                     }
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, geo.safeAreaInsets.bottom + 24)
+                }
+                
+                tapZones(width: geo.size.width)
+            }
+        }
+    }
+    
+    private var topBar: some View {
+        HStack {
+            Button(action: { isPresented = false }) {
+                Image(systemName: "xmark")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .padding(10)
+                    .background(Color.black.opacity(0.4))
+                    .clipShape(Circle())
+            }
+            .accessibilityLabel("Close stories")
+            
+            Spacer()
+            
+            if let story = currentStory, isCurrentUser(story.user.id) {
+                Menu {
+                    Button(role: .destructive) {
+                        showDeleteConfirmation = true
+                    } label: {
+                        Label("Delete Story", systemImage: "trash")
+                    }
+                    .disabled(isDeleting)
+                } label: {
+                    Image(systemName: "ellipsis")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .padding(10)
+                        .background(Color.black.opacity(0.4))
+                        .clipShape(Circle())
                 }
             }
         }
     }
     
-    private var closeButton: some View {
-        Button(action: { isPresented = false }) {
-            Image(systemName: "xmark")
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(.white)
-                .padding(10)
-                .background(Color.black.opacity(0.4))
-                .clipShape(Circle())
+    private func tapZones(width: CGFloat) -> some View {
+        HStack(spacing: 0) {
+            tapZone(width: width * 0.33, action: { previousStory() }, label: "Previous story")
+            tapZone(width: width * 0.67, action: { nextStory() }, label: "Next story")
         }
-        .accessibilityLabel("Close stories")
+        .padding(.top, 100)
+        .frame(maxHeight: .infinity)
+    }
+    
+    private func tapZone(width: CGFloat, action: @escaping () -> Void, label: String) -> some View {
+        Color.clear
+            .frame(width: width)
+            .contentShape(Rectangle())
+            .onTapGesture(perform: action)
+            .onLongPressGesture(minimumDuration: 0.3, pressing: { pressing in
+                isPaused = pressing
+            }, perform: {})
+            .accessibilityLabel(label)
+    }
+    
+    private var progressBar: some View {
+        HStack(spacing: 4) {
+            if let group = currentGroup {
+                ForEach(0..<group.stories.count, id: \.self) { index in
+                    GeometryReader { geo in
+                        ZStack(alignment: .leading) {
+                            RoundedRectangle(cornerRadius: 2)
+                                .fill(Color.white.opacity(0.3))
+                            
+                            if index < currentStoryIndex {
+                                RoundedRectangle(cornerRadius: 2)
+                                    .fill(Color.white)
+                            } else if index == currentStoryIndex {
+                                RoundedRectangle(cornerRadius: 2)
+                                    .fill(Color.white)
+                                    .frame(width: geo.size.width * progress)
+                            }
+                        }
+                    }
+                    .frame(height: 3)
+                    .clipShape(RoundedRectangle(cornerRadius: 2))
+                }
+            }
+        }
     }
     
     private func avatarView(for user: User) -> some View {
@@ -207,44 +303,9 @@ struct StoryViewerView: View {
                     .clipShape(Circle())
             } else {
                 placeholderAvatar(name: user.username)
+                    .clipShape(Circle())
             }
         }
-    }
-    
-    private var progressBar: some View {
-        HStack(spacing: 4) {
-            ForEach(0..<stories.count, id: \.self) { index in
-                GeometryReader { geo in
-                    ZStack(alignment: .leading) {
-                        RoundedRectangle(cornerRadius: 2)
-                            .fill(Color.white.opacity(0.3))
-                        
-                        if index < currentIndex {
-                            RoundedRectangle(cornerRadius: 2)
-                                .fill(Color.white)
-                        } else if index == currentIndex {
-                            RoundedRectangle(cornerRadius: 2)
-                                .fill(Color.white)
-                                .frame(width: geo.size.width * progress)
-                        }
-                    }
-                }
-                .frame(height: 3)
-                .clipShape(RoundedRectangle(cornerRadius: 2))
-            }
-        }
-    }
-    
-    private func tapZone(width: CGFloat, action: @escaping () -> Void, label: String) -> some View {
-        Color.clear
-            .frame(width: width)
-            .contentShape(Rectangle())
-            .onTapGesture(perform: action)
-            .onLongPressGesture(minimumDuration: 0.3, pressing: { pressing in
-                isPaused = pressing
-            }, perform: {})
-            .accessibilityLabel(label)
-            .accessibilityHint("Double tap and hold to pause")
     }
     
     private var dragGesture: some Gesture {
@@ -268,16 +329,18 @@ struct StoryViewerView: View {
     }
     
     private func setupCurrentStory() {
-        guard let story = stories[safe: currentIndex] else {
+        guard currentStory != nil else {
             isPresented = false
             return
         }
         
         invalidatePhotoTimer()
         viewMarkingTask?.cancel()
-        markViewed(story)
+        if let story = currentStory {
+            markViewed(story)
+        }
         
-        if story.isVideo, let url = story.resolvedMediaURL {
+        if let story = currentStory, story.isVideo, let url = story.resolvedMediaURL {
             videoState.reset()
             videoState.load(url: url)
         } else {
@@ -285,7 +348,6 @@ struct StoryViewerView: View {
             progress = 0
             photoElapsedBeforePause = 0
             photoStartTime = nil
-            // Don't start timer until image finishes loading (handled in onSuccess).
         }
         
         preloadStories()
@@ -301,12 +363,10 @@ struct StoryViewerView: View {
     }
     
     private func resumeCurrentStory() {
-        if let story = stories[safe: currentIndex] {
-            if story.isVideo {
-                videoState.play()
-            } else if isImageLoaded {
-                resumePhotoTimer()
-            }
+        if let story = currentStory, story.isVideo {
+            videoState.play()
+        } else if isImageLoaded {
+            resumePhotoTimer()
         }
     }
     
@@ -345,8 +405,8 @@ struct StoryViewerView: View {
             do {
                 try await Task.sleep(nanoseconds: 300_000_000)
                 guard !Task.isCancelled,
-                      currentIndex < stories.count,
-                      stories[currentIndex].id == story.id else { return }
+                      let current = currentStory,
+                      current.id == story.id else { return }
                 try? await APIClient.shared.markStoryViewed(id: story.id)
             } catch {
                 // Cancelled or sleep failed; ignore.
@@ -356,8 +416,15 @@ struct StoryViewerView: View {
     
     private func nextStory() {
         invalidatePhotoTimer()
-        if currentIndex < stories.count - 1 {
-            currentIndex += 1
+        guard let group = currentGroup else {
+            isPresented = false
+            return
+        }
+        if currentStoryIndex < group.stories.count - 1 {
+            currentStoryIndex += 1
+        } else if currentGroupIndex < groups.count - 1 {
+            currentGroupIndex += 1
+            currentStoryIndex = 0
         } else {
             isPresented = false
         }
@@ -365,22 +432,72 @@ struct StoryViewerView: View {
     
     private func previousStory() {
         invalidatePhotoTimer()
-        if currentIndex > 0 {
-            currentIndex -= 1
+        if currentStoryIndex > 0 {
+            currentStoryIndex -= 1
+        } else if currentGroupIndex > 0 {
+            currentGroupIndex -= 1
+            currentStoryIndex = max(groups[currentGroupIndex].stories.count - 1, 0)
         } else {
-            // Restart current story from beginning.
             progress = 0
             photoElapsedBeforePause = 0
             setupCurrentStory()
         }
     }
     
-    private func preloadStories() {
-        let end = min(currentIndex + 4, stories.count)
-        let urls = stories[currentIndex..<end].compactMap { story in
-            story.resolvedMediaURL
+    private func deleteCurrentStory() {
+        guard let story = currentStory else { return }
+        isDeleting = true
+        Task {
+            do {
+                try await APIClient.shared.deleteStory(id: story.id)
+                await MainActor.run {
+                    removeStory(story)
+                    isDeleting = false
+                    onStoriesChanged()
+                }
+            } catch {
+                await MainActor.run {
+                    isDeleting = false
+                    loadError = error
+                }
+            }
         }
+    }
+    
+    private func removeStory(_ story: Story) {
+        var updatedGroups = groups
+        guard updatedGroups.indices.contains(currentGroupIndex) else { return }
+        updatedGroups[currentGroupIndex].stories.removeAll { $0.id == story.id }
+        if updatedGroups[currentGroupIndex].stories.isEmpty {
+            updatedGroups.remove(at: currentGroupIndex)
+            if updatedGroups.isEmpty {
+                isPresented = false
+                return
+            }
+            if currentGroupIndex >= updatedGroups.count {
+                currentGroupIndex = updatedGroups.count - 1
+            }
+            currentStoryIndex = 0
+        } else {
+            if currentStoryIndex >= updatedGroups[currentGroupIndex].stories.count {
+                currentStoryIndex = updatedGroups[currentGroupIndex].stories.count - 1
+            }
+        }
+        groups = updatedGroups
+        resetStoryState()
+        setupCurrentStory()
+    }
+    
+    private func preloadStories() {
+        let flatStories = groups.flatMap { $0.stories }
+        guard let currentFlatIndex = flatStories.firstIndex(where: { $0.id == currentStory?.id }) else { return }
+        let end = min(currentFlatIndex + 4, flatStories.count)
+        let urls = flatStories[currentFlatIndex..<end].compactMap { $0.resolvedMediaURL }
         ImagePrefetcher(urls: urls).start()
+    }
+    
+    private func isCurrentUser(_ userID: Int) -> Bool {
+        AuthManager.shared.currentUser?.id == userID
     }
 }
 

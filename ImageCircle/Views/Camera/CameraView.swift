@@ -55,6 +55,14 @@ struct CameraView: View {
                         onFinished(false)
                     }
                 }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(action: { camera.switchCamera() }) {
+                        Image(systemName: "camera.rotate")
+                            .font(.system(size: 18, weight: .semibold))
+                    }
+                    .disabled(camera.isRecording)
+                    .accessibilityLabel("Switch camera")
+                }
             }
             .onAppear {
                 Task { await camera.checkPermissionAndSetup() }
@@ -382,6 +390,30 @@ final class CameraCaptureManager: NSObject, ObservableObject {
         sessionQueue.async { [weak self] in
             guard let self = self, self.session.isRunning else { return }
             self.session.stopRunning()
+        }
+    }
+    
+    func switchCamera() {
+        guard !isRecording else { return }
+        sessionQueue.async { [weak self] in
+            guard let self = self else { return }
+            self.session.beginConfiguration()
+            defer { self.session.commitConfiguration() }
+            
+            guard let currentInput = self.videoDeviceInput else { return }
+            self.session.removeInput(currentInput)
+            
+            let newPosition: AVCaptureDevice.Position = currentInput.device.position == .back ? .front : .back
+            guard let device = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: newPosition),
+                  let input = try? AVCaptureDeviceInput(device: device),
+                  self.session.canAddInput(input) else {
+                if self.session.canAddInput(currentInput) {
+                    self.session.addInput(currentInput)
+                }
+                return
+            }
+            self.session.addInput(input)
+            self.videoDeviceInput = input
         }
     }
     

@@ -11,12 +11,12 @@ struct HomeView: View {
     @Binding var refreshTrigger: UUID
     
     @State private var posts: [Post] = []
-    @State private var stories: [Story] = []
-    @State private var ownStory: Story?
+    @State private var storyGroups: [StoryGroup] = []
+    @State private var selectedGroupIndex: Int = 0
+    @State private var selectedStoryIndex: Int = 0
     @State private var isLoading = false
     @State private var errorMessage: String?
     @State private var showError = false
-    @State private var selectedStory: Story?
     @State private var showStoryViewer = false
     @State private var showCamera = false
     @State private var selectedPostForComments: Post?
@@ -32,12 +32,12 @@ struct HomeView: View {
             ScrollView {
                 LazyVStack(spacing: 0, pinnedViews: []) {
                     StoriesTrayView(
-                        stories: stories,
-                        onStorySelected: { story in
-                            selectedStory = story
+                        groups: storyGroups,
+                        onStorySelected: { groupIndex, storyIndex in
+                            selectedGroupIndex = groupIndex
+                            selectedStoryIndex = storyIndex
                             showStoryViewer = true
                         },
-                        ownStory: ownStory,
                         onAddStoryTapped: { showCamera = true },
                         showAddButton: true
                     )
@@ -54,6 +54,8 @@ struct HomeView: View {
                                 Task { await loadFeed() }
                             } onCommentTapped: {
                                 selectedPostForComments = post
+                            } onDelete: {
+                                Task { await loadFeed() }
                             }
                             .id(post.id)
                         }
@@ -77,9 +79,16 @@ struct HomeView: View {
                 CommentsSheetView(post: post)
             }
             .fullScreenCover(isPresented: $showStoryViewer) {
-                if let story = selectedStory,
-                   let index = stories.firstIndex(where: { $0.id == story.id }) {
-                    StoryViewerView(stories: stories, startIndex: index, isPresented: $showStoryViewer)
+                if !storyGroups.isEmpty,
+                   storyGroups.indices.contains(selectedGroupIndex),
+                   storyGroups[selectedGroupIndex].stories.indices.contains(selectedStoryIndex) {
+                    StoryViewerView(
+                        groups: storyGroups,
+                        groupIndex: selectedGroupIndex,
+                        storyIndex: selectedStoryIndex,
+                        isPresented: $showStoryViewer,
+                        onStoriesChanged: { Task { await loadStories() } }
+                    )
                 }
             }
             .sheet(isPresented: $showCamera) {
@@ -164,15 +173,20 @@ struct HomeView: View {
             async let otherStories = APIClient.shared.fetchStories()
             let loadedOthers = try await otherStories
             
+            var allStories = loadedOthers
             if let currentUserID = AuthManager.shared.currentUser?.id {
                 async let myStories = APIClient.shared.fetchStories(userID: currentUserID)
                 let loadedMine = try await myStories
-                ownStory = loadedMine.first
-                stories = loadedOthers.filter { $0.user.id != currentUserID }
-            } else {
-                ownStory = nil
-                stories = loadedOthers
+                allStories = loadedMine + loadedOthers.filter { $0.user.id != currentUserID }
             }
+            
+            var groups = allStories.groupedByUser()
+            if let currentUserID = AuthManager.shared.currentUser?.id,
+               let ownIndex = groups.firstIndex(where: { $0.user.id == currentUserID }) {
+                let ownGroup = groups.remove(at: ownIndex)
+                groups.insert(ownGroup, at: 0)
+            }
+            storyGroups = groups
         } catch {
             // Stories failure is non-fatal; don't alert.
         }
@@ -206,8 +220,18 @@ struct CommentsSheetView: View {
                                 .font(.caption2)
                                 .foregroundStyle(.secondary)
                         }
+                        Spacer()
                     }
                     .padding(.vertical, 4)
+                    .contextMenu {
+                        if AuthManager.shared.currentUser?.id == comment.user.id {
+                            Button(role: .destructive) {
+                                deleteComment(comment)
+                            } label: {
+                                Label("Delete", systemImage: "trash")
+                            }
+                        }
+                    }
                 }
                 .listStyle(.plain)
                 
@@ -253,6 +277,22 @@ struct CommentsSheetView: View {
             showError = true
         }
         isLoading = false
+    }
+    
+    private func deleteComment(_ comment: Comment) {
+        Task {
+            do {
+                try await APIClient.shared.deleteComment(id: comment.id)
+                await MainActor.run {
+                    comments.removeAll { $0.id == comment.id }
+                }
+            } catch {
+                await MainActor.run {
+                    errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+                    showError = true
+                }
+            }
+        }
     }
     
     private func submitComment() {

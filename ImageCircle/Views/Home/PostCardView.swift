@@ -12,17 +12,25 @@ struct PostCardView: View {
     let post: Post
     let onLikeChanged: () -> Void
     let onCommentTapped: () -> Void
+    let onDelete: () -> Void
     
     @State private var postState: Post
     @State private var showHeartOverlay = false
     @State private var heartScale: CGFloat = 0.5
     @State private var isLiking = false
+    @State private var showDeleteConfirmation = false
+    @State private var isDeleting = false
     
-    init(post: Post, onLikeChanged: @escaping () -> Void, onCommentTapped: @escaping () -> Void) {
+    init(post: Post, onLikeChanged: @escaping () -> Void, onCommentTapped: @escaping () -> Void, onDelete: @escaping () -> Void = {}) {
         self.post = post
         self._postState = State(initialValue: post)
         self.onLikeChanged = onLikeChanged
         self.onCommentTapped = onCommentTapped
+        self.onDelete = onDelete
+    }
+    
+    private var isOwner: Bool {
+        AuthManager.shared.currentUser?.id == postState.user.id
     }
     
     var body: some View {
@@ -62,9 +70,34 @@ struct PostCardView: View {
             Text(postState.createdAt.relativeTimeFromISO())
                 .font(.caption)
                 .foregroundStyle(.secondary)
+            
+            if isOwner {
+                Menu {
+                    Button(role: .destructive) {
+                        showDeleteConfirmation = true
+                    } label: {
+                        Label("Delete", systemImage: "trash")
+                    }
+                    .disabled(isDeleting)
+                } label: {
+                    Image(systemName: "ellipsis")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 28, height: 28)
+                        .contentShape(Rectangle())
+                }
+            }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
+        .alert("Delete Post?", isPresented: $showDeleteConfirmation) {
+            Button("Cancel", role: .cancel) {}
+            Button("Delete", role: .destructive) {
+                deletePost()
+            }
+        } message: {
+            Text("This cannot be undone.")
+        }
     }
     
     private var imageSection: some View {
@@ -221,6 +254,24 @@ struct PostCardView: View {
                 postState = post
             }
             isLiking = false
+        }
+    }
+    
+    private func deletePost() {
+        guard isOwner else { return }
+        isDeleting = true
+        Task {
+            do {
+                try await APIClient.shared.deletePost(id: postState.id)
+                await MainActor.run {
+                    isDeleting = false
+                    onDelete()
+                }
+            } catch {
+                await MainActor.run {
+                    isDeleting = false
+                }
+            }
         }
     }
     

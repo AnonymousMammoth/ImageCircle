@@ -9,21 +9,10 @@ import SwiftUI
 import Kingfisher
 
 struct StoriesTrayView: View {
-    let stories: [Story]
-    let onStorySelected: (Story) -> Void
-    var ownStory: Story? = nil
+    let groups: [StoryGroup]
+    let onStorySelected: (Int, Int) -> Void
     var onAddStoryTapped: (() -> Void)? = nil
     var showAddButton: Bool = false
-    
-    /// Deduplicates stories by user so each friend appears once in the tray.
-    private var uniqueUserStories: [Story] {
-        var seen = Set<Int>()
-        return stories.filter { story in
-            if seen.contains(story.user.id) { return false }
-            seen.insert(story.user.id)
-            return true
-        }
-    }
     
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
@@ -31,14 +20,9 @@ struct StoriesTrayView: View {
                 if showAddButton {
                     AddStoryCircle(action: { onAddStoryTapped?() })
                 }
-                if let ownStory = ownStory {
-                    StoryCircle(story: ownStory) {
-                        onStorySelected(ownStory)
-                    }
-                }
-                ForEach(uniqueUserStories) { story in
-                    StoryCircle(story: story) {
-                        onStorySelected(story)
+                ForEach(Array(groups.enumerated()), id: \.element.id) { index, group in
+                    StoryCircle(group: group) {
+                        onStorySelected(index, 0)
                     }
                 }
             }
@@ -78,7 +62,7 @@ struct AddStoryCircle: View {
 }
 
 struct StoryCircle: View {
-    let story: Story
+    let group: StoryGroup
     let action: () -> Void
     
     var body: some View {
@@ -86,15 +70,15 @@ struct StoryCircle: View {
             VStack(spacing: 6) {
                 ZStack {
                     Circle()
-                        .stroke(unviewedGradient, lineWidth: story.viewed ? 0 : 3)
+                        .stroke(unviewedGradient, lineWidth: group.isViewed ? 0 : 3)
                         .frame(width: 60, height: 60)
                     
-                    avatarView(for: story.user)
+                    avatarView(for: group.user)
                         .frame(width: 50, height: 50)
                         .clipShape(Circle())
                 }
                 
-                Text(story.user.username.prefix(8))
+                Text(group.user.username.prefix(8))
                     .font(.caption)
                     .foregroundStyle(.primary)
                     .lineLimit(1)
@@ -102,7 +86,7 @@ struct StoryCircle: View {
             }
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("\(story.viewed ? "Viewed" : "Unviewed") story from \(story.user.username)")
+        .accessibilityLabel("\(group.isViewed ? "Viewed" : "Unviewed") story from \(group.user.username)")
     }
     
     private var unviewedGradient: LinearGradient {

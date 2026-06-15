@@ -461,6 +461,26 @@ final class APIClient {
         return try await perform(req)
     }
     
+    // MARK: - Delete
+    
+    func deletePost(id: Int) async throws {
+        let url = try apiURL(path: "posts/\(id)")
+        let req = request(for: url, method: "DELETE")
+        try await performVoid(req)
+    }
+    
+    func deleteStory(id: Int) async throws {
+        let url = try apiURL(path: "stories/\(id)")
+        let req = request(for: url, method: "DELETE")
+        try await performVoid(req)
+    }
+    
+    func deleteComment(id: Int) async throws {
+        let url = try apiURL(path: "comments/\(id)")
+        let req = request(for: url, method: "DELETE")
+        try await performVoid(req)
+    }
+    
     // MARK: - Multipart Uploads
     
 

@@ -7,10 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		DA7DC5032FDEAA5400DA0D01 /* Kingfisher in Frameworks */ = {
-			isa = PBXBuildFile;
-			productRef = DA7DC5022FDEAA5400DA0D01 /* Kingfisher */;
-		};
+		DA7DC5032FDEAA5400DA0D01 /* Kingfisher in Frameworks */ = {isa = PBXBuildFile; productRef = DA7DC5022FDEAA5400DA0D01 /* Kingfisher */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -135,25 +132,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
-
-/* Begin XCRemoteSwiftPackageReference section */
-		DA7DC5012FDEAA5400DA0D01 /* XCRemoteSwiftPackageReference "Kingfisher" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/onevcat/Kingfisher.git";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 7.0.0;
-			};
-		};
-/* End XCRemoteSwiftPackageReference section */
-
-/* Begin XCSwiftPackageProductDependency section */
-		DA7DC5022FDEAA5400DA0D01 /* Kingfisher */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = DA7DC5012FDEAA5400DA0D01 /* XCRemoteSwiftPackageReference "Kingfisher" */;
-			productName = Kingfisher;
-		};
-/* End XCSwiftPackageProductDependency section */
 
 /* Begin XCBuildConfiguration section */
 		DA7DC4FC2FDEAA5400DA0D01 /* Debug */ = {
@@ -287,15 +265,14 @@
 				DEVELOPMENT_TEAM = T2XH27FSS3;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
-				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
-
 				INFOPLIST_KEY_CFBundleDisplayName = ImageCircle;
 				INFOPLIST_KEY_NSCameraUsageDescription = "ImageCircle needs camera access to capture photos and videos.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "ImageCircle needs microphone access for video recording.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "ImageCircle needs photo library access to upload existing photos.";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-								INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -323,15 +300,14 @@
 				DEVELOPMENT_TEAM = T2XH27FSS3;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
-				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
-
 				INFOPLIST_KEY_CFBundleDisplayName = ImageCircle;
 				INFOPLIST_KEY_NSCameraUsageDescription = "ImageCircle needs camera access to capture photos and videos.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "ImageCircle needs microphone access for video recording.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "ImageCircle needs photo library access to upload existing photos.";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-								INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -371,6 +347,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		DA7DC5012FDEAA5400DA0D01 /* XCRemoteSwiftPackageReference "Kingfisher" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/onevcat/Kingfisher.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 7.0.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		DA7DC5022FDEAA5400DA0D01 /* Kingfisher */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = DA7DC5012FDEAA5400DA0D01 /* XCRemoteSwiftPackageReference "Kingfisher" */;
+			productName = Kingfisher;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = DA7DC4EB2FDEAA5100DA0D01 /* Project object */;
 }

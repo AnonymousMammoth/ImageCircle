@@ -64,7 +64,7 @@ struct ProfileView: View {
             SettingsView()
         }
         .sheet(item: $selectedPost) { post in
-            ProfilePostDetailView(post: post)
+            ProfilePostDetailView(post: post, onDelete: { Task { await loadPosts() } })
         }
         .sheet(item: $commentPost) { post in
             CommentsSheetView(post: post)
@@ -174,7 +174,8 @@ struct ProfileView: View {
                 PostCardView(
                     post: post,
                     onLikeChanged: { Task { await loadPosts() } },
-                    onCommentTapped: { commentPost = post }
+                    onCommentTapped: { commentPost = post },
+                    onDelete: { Task { await loadPosts() } }
                 )
                 .id(post.id)
             }
@@ -343,7 +344,15 @@ struct ProfileView: View {
 
 struct ProfilePostDetailView: View {
     let post: Post
+    let onDelete: () -> Void
+    @StateObject private var auth = AuthManager.shared
+    @State private var showDeleteConfirmation = false
+    @State private var isDeleting = false
     @Environment(\.dismiss) private var dismiss
+    
+    private var isOwner: Bool {
+        auth.currentUser?.id == post.user.id
+    }
     
     var body: some View {
         NavigationStack {
@@ -373,9 +382,27 @@ struct ProfilePostDetailView: View {
                 .padding(.vertical)
             }
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItem(placement: .topBarLeading) {
                     Button("Done") { dismiss() }
                 }
+                if isOwner {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button(role: .destructive) {
+                            showDeleteConfirmation = true
+                        } label: {
+                            Image(systemName: "trash")
+                        }
+                        .disabled(isDeleting)
+                    }
+                }
+            }
+            .alert("Delete Post?", isPresented: $showDeleteConfirmation) {
+                Button("Cancel", role: .cancel) {}
+                Button("Delete", role: .destructive) {
+                    deletePost()
+                }
+            } message: {
+                Text("This cannot be undone.")
             }
         }
     }
@@ -398,6 +425,25 @@ struct ProfilePostDetailView: View {
         }
         .frame(maxWidth: .infinity, minHeight: 300)
         .background(Color(.systemGray6))
+    }
+    
+    private func deletePost() {
+        guard isOwner else { return }
+        isDeleting = true
+        Task {
+            do {
+                try await APIClient.shared.deletePost(id: post.id)
+                await MainActor.run {
+                    isDeleting = false
+                    onDelete()
+                    dismiss()
+                }
+            } catch {
+                await MainActor.run {
+                    isDeleting = false
+                }
+            }
+        }
     }
     
     private var imageSection: some View {
