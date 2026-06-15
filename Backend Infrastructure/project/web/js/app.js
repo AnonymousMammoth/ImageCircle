@@ -23,6 +23,18 @@
             try { user = await fetchMe(); } catch (_) { user = null; }
             if (user && user.id) {
                 state.setAuthFromCookie(user);
+                // Desktop Safari/PWAs often refuse to send the HttpOnly cookie for
+                // <img> subresources, so fetch a JWT now and use it for media URLs.
+                try {
+                    const refreshed = await apiPost('/auth/refresh', {});
+                    if (refreshed && refreshed.token) {
+                        state.token = refreshed.token;
+                        state._persistToken();
+                    }
+                } catch (_) {
+                    // Cookie auth still works for fetch requests; media just falls
+                    // back to initials if the cookie is not sent for images.
+                }
                 return;
             }
 

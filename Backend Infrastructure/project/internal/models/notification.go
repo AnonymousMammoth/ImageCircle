@@ -3,13 +3,14 @@ package models
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 	"time"
 )
 
 // Notification represents an activity item for the owner of a post
-// (a like or a comment from another user).
+// (a like, comment, or @mention from another user).
 type Notification struct {
-	ID        int64                `json:"id"`
+	ID        string               `json:"id"`
 	Type      string               `json:"type"`
 	Actor     *User                `json:"actor"`
 	Post      *NotificationPost    `json:"post"`
@@ -34,13 +35,13 @@ type NotificationComment struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
-// GetNotifications returns likes and comments on the given user's posts,
-// ordered by created_at descending and paginated by limit/offset.
+// GetNotifications returns likes, comments, and explicit notifications for the
+// given user, ordered by created_at descending and paginated by limit/offset.
 func GetNotifications(db *sql.DB, userID int64, limit, offset int) ([]*Notification, error) {
 	query := `
 		SELECT * FROM (
 			SELECT
-				l.id, 'like' AS type, l.created_at,
+				'like:' || l.id AS id, 'like' AS type, l.created_at,
 				actor.id, actor.username, actor.display_name, actor.is_admin, actor.password_change_required, actor.avatar_filename, actor.created_at,
 				p.id, p.user_id, p.caption, p.media_filename, p.thumbnail_filename, p.created_at,
 				NULL AS comment_id, NULL AS comment_text, NULL AS comment_created_at
@@ -52,7 +53,7 @@ func GetNotifications(db *sql.DB, userID int64, limit, offset int) ([]*Notificat
 			UNION ALL
 
 			SELECT
-				c.id, 'comment' AS type, c.created_at,
+				'comment:' || c.id AS id, 'comment' AS type, c.created_at,
 				actor.id, actor.username, actor.display_name, actor.is_admin, actor.password_change_required, actor.avatar_filename, actor.created_at,
 				p.id, p.user_id, p.caption, p.media_filename, p.thumbnail_filename, p.created_at,
 				c.id, c.text, c.created_at
@@ -60,18 +61,56 @@ func GetNotifications(db *sql.DB, userID int64, limit, offset int) ([]*Notificat
 			JOIN posts p ON c.post_id = p.id
 			JOIN users actor ON c.user_id = actor.id
 			WHERE p.user_id = ?
+
+			UNION ALL
+
+			SELECT
+				n.type || ':' || n.id AS id, n.type, n.created_at,
+				actor.id, actor.username, actor.display_name, actor.is_admin, actor.password_change_required, actor.avatar_filename, actor.created_at,
+				p.id, p.user_id, p.caption, p.media_filename, p.thumbnail_filename, p.created_at,
+				c.id, c.text, c.created_at
+			FROM notifications n
+			JOIN users actor ON n.actor_id = actor.id
+			JOIN posts p ON n.post_id = p.id
+			LEFT JOIN comments c ON n.comment_id = c.id
+			WHERE n.user_id = ?
 		)
 		ORDER BY created_at DESC
 		LIMIT ? OFFSET ?
 	`
 
-	rows, err := db.Query(query, userID, userID, limit, offset)
+	rows, err := db.Query(query, userID, userID, userID, limit, offset)
 	if err != nil {
 		return nil, fmt.Errorf("query notifications: %w", err)
 	}
 	defer rows.Close()
 
 	return scanNotifications(rows)
+}
+
+// CreateNotification inserts an explicit notification row.
+func CreateNotification(db *sql.DB, recipientID, actorID int64, ntype string, postID, commentID int64, textPreview string) error {
+	var postIDVal, commentIDVal sql.NullInt64
+	if postID > 0 {
+		postIDVal = sql.NullInt64{Int64: postID, Valid: true}
+	}
+	if commentID > 0 {
+		commentIDVal = sql.NullInt64{Int64: commentID, Valid: true}
+	}
+	preview := textPreview
+	if len(preview) > 200 {
+		preview = preview[:200]
+	}
+	preview = strings.TrimSpace(preview)
+
+	_, err := db.Exec(`
+		INSERT INTO notifications (user_id, actor_id, type, post_id, comment_id, text_preview)
+		VALUES (?, ?, ?, ?, ?, ?)
+	`, recipientID, actorID, ntype, postIDVal, commentIDVal, preview)
+	if err != nil {
+		return fmt.Errorf("insert notification: %w", err)
+	}
+	return nil
 }
 
 func scanNotifications(rows *sql.Rows) ([]*Notification, error) {

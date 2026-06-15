@@ -57,12 +57,12 @@ func GetUserByID(db *sql.DB, id int64) (*User, error) {
 	return scanUser(row)
 }
 
-// GetUserByUsername retrieves a user by username.
+// GetUserByUsername retrieves a user by username (case-insensitive).
 func GetUserByUsername(db *sql.DB, username string) (*User, error) {
 	query := `
 		SELECT id, username, display_name, password_hash, is_admin, password_change_required, avatar_filename, created_at
 		FROM users
-		WHERE username = ?
+		WHERE username = ? COLLATE NOCASE
 	`
 	row := db.QueryRow(query, username)
 	return scanUser(row)

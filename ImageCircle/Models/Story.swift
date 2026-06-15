@@ -38,19 +38,20 @@ struct Story: Codable, Identifiable, Hashable {
     var isImage: Bool { mediaType == "image" }
     var isVideo: Bool { mediaType == "video" }
     
-    /// Resolves the full media URL, preferring the server-provided URL and falling back to local construction.
+    /// Resolves the full media URL. Relative paths from the backend are rebuilt
+    /// against the configured server URL so URLSession/Kingfisher can fetch them.
     var resolvedMediaURL: URL? {
         if let urlString = mediaURL, !urlString.isEmpty,
-           let url = URL(string: urlString) {
+           let url = URL(string: urlString), url.scheme != nil {
             return url
         }
         return MediaURL.url(userID: user.id, filename: mediaFilename)
     }
     
-    /// Resolves the full thumbnail URL, preferring the server-provided URL and falling back to local construction.
+    /// Resolves the full thumbnail URL. Relative paths are rebuilt against the server URL.
     var resolvedThumbnailURL: URL? {
         if let urlString = thumbnailURL, !urlString.isEmpty,
-           let url = URL(string: urlString) {
+           let url = URL(string: urlString), url.scheme != nil {
             return url
         }
         if let filename = thumbnailFilename, !filename.isEmpty {

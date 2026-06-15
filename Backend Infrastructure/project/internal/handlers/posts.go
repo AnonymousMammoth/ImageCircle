@@ -142,6 +142,9 @@ func (h *PostHandler) CreatePost(c *gin.Context) {
 		return
 	}
 
+	// Notify any mentioned users. Failures here are non-fatal.
+	createMentionNotifications(h.DB, userID, "mention_post", post.ID, 0, caption)
+
 	utils.RespondCreated(c, post)
 }
 

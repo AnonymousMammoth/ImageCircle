@@ -67,7 +67,7 @@ final class APIClient {
     
     private let jsonDecoder: JSONDecoder
     private let jsonEncoder: JSONEncoder
-    private let session: URLSession
+    let session: URLSession
     private let uploadSession: URLSession
     private let uploadDelegate = UploadDelegate()
     

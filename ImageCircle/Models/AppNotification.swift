@@ -8,7 +8,7 @@
 import Foundation
 
 struct AppNotification: Codable, Identifiable {
-    let id: Int
+    let id: String
     let type: String
     let actor: User
     let post: NotificationPost
@@ -26,6 +26,8 @@ struct AppNotification: Codable, Identifiable {
     
     var isLike: Bool { type == "like" }
     var isComment: Bool { type == "comment" }
+    var isMentionPost: Bool { type == "mention_post" }
+    var isMentionComment: Bool { type == "mention_comment" }
 }
 
 /// Minimal post representation used in notification payloads.

@@ -75,7 +75,17 @@ struct NotificationsView: View {
     private func notificationText(for notification: AppNotification) -> AttributedString {
         let actor = notification.actor.username
         let postPreview = notification.post.caption?.prefix(30) ?? "your post"
-        let suffix = notification.isComment ? "commented on \(postPreview)" : "liked \(postPreview)"
+        let suffix: String
+        if notification.isMentionPost {
+            suffix = "mentioned you in a post: \(postPreview)"
+        } else if notification.isMentionComment {
+            let commentPreview = notification.comment?.text.prefix(30) ?? "a comment"
+            suffix = "mentioned you in a comment: \(commentPreview)"
+        } else if notification.isComment {
+            suffix = "commented on \(postPreview)"
+        } else {
+            suffix = "liked \(postPreview)"
+        }
         var attributed = AttributedString("\(actor) \(suffix)")
         if let range = attributed.range(of: actor) {
             attributed[range].font = .subheadline.weight(.semibold)

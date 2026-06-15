@@ -89,6 +89,9 @@ func (h *CommentHandler) CreateComment(c *gin.Context) {
 		return
 	}
 
+	// Notify any mentioned users. Failures here are non-fatal.
+	createMentionNotifications(h.DB, userID, "mention_comment", postID, comment.ID, req.Text)
+
 	utils.RespondCreated(c, comment)
 }
 

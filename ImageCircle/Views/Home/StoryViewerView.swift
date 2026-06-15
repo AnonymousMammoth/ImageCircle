@@ -549,6 +549,7 @@ final class VideoPlayerState: ObservableObject {
     @Published var didFinish = false
     @Published var loadError: Error?
     private var finishedObserver: NSObjectProtocol?
+    private var failedObserver: NSObjectProtocol?
     private var downloadTask: Task<Void, Never>?
     private var localFileURL: URL?
 
@@ -574,6 +575,14 @@ final class VideoPlayerState: ObservableObject {
                         self?.didFinish = true
                     }
 
+                    self.failedObserver = NotificationCenter.default.addObserver(
+                        forName: .AVPlayerItemFailedToPlayToEndTime,
+                        object: item,
+                        queue: .main
+                    ) { [weak self] _ in
+                        self?.loadError = URLError(.cannotLoadFromNetwork)
+                    }
+
                     player.play()
                 }
             } catch {
@@ -591,7 +600,7 @@ final class VideoPlayerState: ObservableObject {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        let (tempURL, response) = try await URLSession.shared.download(for: request)
+        let (tempURL, response) = try await APIClient.shared.session.download(for: request)
         guard let httpResponse = response as? HTTPURLResponse,
               (200..<300).contains(httpResponse.statusCode) else {
             throw URLError(.badServerResponse)
@@ -624,6 +633,10 @@ final class VideoPlayerState: ObservableObject {
         if let observer = finishedObserver {
             NotificationCenter.default.removeObserver(observer)
             finishedObserver = nil
+        }
+        if let observer = failedObserver {
+            NotificationCenter.default.removeObserver(observer)
+            failedObserver = nil
         }
         if let localFileURL = localFileURL {
             try? FileManager.default.removeItem(at: localFileURL)

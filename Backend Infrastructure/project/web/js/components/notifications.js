@@ -63,6 +63,16 @@ const notificationsComponent = {
             text.appendChild(document.createTextNode(' commented: '));
             const commentText = createEl('span', { className: 'notification-comment', text: comment.text || '' });
             text.appendChild(commentText);
+        } else if (type === 'mention_post') {
+            const preview = post && post.caption ? post.caption : 'a post';
+            text.appendChild(document.createTextNode(' mentioned you in a post: '));
+            const postPreview = createEl('span', { className: 'notification-comment', text: preview });
+            text.appendChild(postPreview);
+        } else if (type === 'mention_comment') {
+            const preview = comment && comment.text ? comment.text : 'a comment';
+            text.appendChild(document.createTextNode(' mentioned you in a comment: '));
+            const commentPreview = createEl('span', { className: 'notification-comment', text: preview });
+            text.appendChild(commentPreview);
         } else {
             text.appendChild(document.createTextNode(' interacted with your post.'));
         }

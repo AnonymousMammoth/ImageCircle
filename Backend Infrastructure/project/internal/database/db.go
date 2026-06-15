@@ -65,6 +65,34 @@ func (db *DB) migrate() error {
 			return fmt.Errorf("add avatar column: %w", err)
 		}
 	}
+
+	// Add notifications table for explicit activity items such as @mentions.
+	if err := db.conn.QueryRow(`
+		SELECT COUNT(*) FROM pragma_table_info('notifications') WHERE name = 'id'
+	`).Scan(&count); err != nil {
+		return fmt.Errorf("check notifications table: %w", err)
+	}
+	if count == 0 {
+		_, err := db.conn.Exec(`
+			CREATE TABLE notifications (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+				actor_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+				type TEXT NOT NULL CHECK(type IN ('mention_post', 'mention_comment')),
+				post_id INTEGER REFERENCES posts(id) ON DELETE CASCADE,
+				comment_id INTEGER REFERENCES comments(id) ON DELETE CASCADE,
+				text_preview TEXT,
+				is_read INTEGER DEFAULT 0,
+				created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+			);
+			CREATE INDEX idx_notifications_user_id_created_at ON notifications(user_id, created_at DESC);
+			CREATE INDEX idx_notifications_unread ON notifications(user_id, is_read);
+		`)
+		if err != nil {
+			return fmt.Errorf("create notifications table: %w", err)
+		}
+	}
+
 	return nil
 }
 
