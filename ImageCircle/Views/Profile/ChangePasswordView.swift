@@ -19,8 +19,17 @@ struct ChangePasswordView: View {
     
     private var canSubmit: Bool {
         !currentPassword.isEmpty &&
-        newPassword.count >= 6 &&
+        newPassword.count >= PasswordValidator.minimumLength &&
+        PasswordValidator.isStrong(newPassword) &&
         newPassword == confirmPassword
+    }
+
+    private var passwordHint: String {
+        PasswordValidator.strengthHint(for: newPassword)
+    }
+
+    private var showPasswordHint: Bool {
+        !newPassword.isEmpty && !PasswordValidator.isStrong(newPassword)
     }
     
     var body: some View {
@@ -35,6 +44,12 @@ struct ChangePasswordView: View {
                     .textContentType(.newPassword)
                 SecureField("Confirm New Password", text: $confirmPassword)
                     .textContentType(.newPassword)
+
+                if showPasswordHint {
+                    Text(passwordHint)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
             
             Section {

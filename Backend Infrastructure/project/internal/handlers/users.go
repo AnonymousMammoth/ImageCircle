@@ -347,7 +347,8 @@ func (h *UserHandler) GetUserPosts(c *gin.Context) {
 	}
 
 	// Check the requested user exists
-	if _, err := models.GetUserByID(h.DB, id); err != nil {
+	user, err := models.GetUserByID(h.DB, id)
+	if err != nil {
 		if err == sql.ErrNoRows {
 			utils.RespondError(c, http.StatusNotFound, "user not found")
 			return
@@ -355,6 +356,7 @@ func (h *UserHandler) GetUserPosts(c *gin.Context) {
 		utils.RespondError(c, http.StatusInternalServerError, "failed to retrieve user")
 		return
 	}
+	user.PasswordHash = ""
 
 	page := utils.GetPagination(c)
 	posts, err := models.GetPostsByUser(h.DB, id, requestingUserID, page.Limit, page.Offset)
@@ -363,7 +365,7 @@ func (h *UserHandler) GetUserPosts(c *gin.Context) {
 		return
 	}
 
-	utils.RespondJSON(c, http.StatusOK, gin.H{"posts": posts})
+	utils.RespondJSON(c, http.StatusOK, gin.H{"user": user, "posts": posts})
 }
 
 // UpdateAvatar uploads and sets the current user's avatar.

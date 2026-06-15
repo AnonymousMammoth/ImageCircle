@@ -106,6 +106,16 @@ const notificationsComponent = {
     },
 
     async loadData(token) {
+        try {
+            await markNotificationsRead();
+        } catch (err) {
+            console.error(err);
+        }
+        state.setNotificationCount(0);
+        if (shell && shell.updateNotificationBadge) {
+            shell.updateNotificationBadge();
+        }
+
         this.isLoading = true;
         const list = document.getElementById('notifications-list');
         if (list) this.renderList(list);

@@ -142,7 +142,7 @@ final class APIClient {
             throw error
         } catch {
             if Task.isCancelled || isCancellationError(error) { throw APIError.cancelled }
-            if retry && shouldRetry(error) {
+            if retry && isIdempotent(request) && shouldRetry(error) {
                 try await Task.sleep(nanoseconds: 500_000_000)
                 return try await perform(request, session: session, retry: false)
             }
@@ -159,7 +159,7 @@ final class APIClient {
             throw error
         } catch {
             if Task.isCancelled || isCancellationError(error) { throw APIError.cancelled }
-            if retry && shouldRetry(error) {
+            if retry && isIdempotent(request) && shouldRetry(error) {
                 try await Task.sleep(nanoseconds: 500_000_000)
                 try await performVoid(request, session: session, retry: false)
                 return
@@ -206,7 +206,12 @@ final class APIClient {
             return false
         }
     }
-    
+
+    private func isIdempotent(_ request: URLRequest) -> Bool {
+        guard let method = request.httpMethod else { return true }
+        return ["GET", "HEAD", "OPTIONS", "TRACE"].contains(method.uppercased())
+    }
+
     private func isCancellationError(_ error: Error) -> Bool {
         if error is CancellationError { return true }
         if let apiError = error as? APIError, apiError == .cancelled { return true }
@@ -435,11 +440,10 @@ final class APIClient {
     
     func searchUsers(query: String) async throws -> [User] {
         let baseURL = try apiURL(path: "users/search")
-        guard var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false),
-              let encodedQuery = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) else {
+        guard var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false) else {
             throw APIError.invalidURL
         }
-        components.queryItems = [URLQueryItem(name: "q", value: encodedQuery)]
+        components.queryItems = [URLQueryItem(name: "q", value: query)]
         guard let url = components.url else { throw APIError.invalidURL }
         let req = request(for: url)
         let response: UsersResponse = try await perform(req)

@@ -42,6 +42,19 @@ func (h *NotificationHandler) UnreadCount(c *gin.Context) {
 	utils.RespondJSON(c, http.StatusOK, gin.H{"count": count})
 }
 
+// MarkRead marks all unread explicit notifications for the current user as read.
+func (h *NotificationHandler) MarkRead(c *gin.Context) {
+	userID := c.GetInt64("user_id")
+
+	rowsAffected, err := models.MarkNotificationsRead(h.DB, userID)
+	if err != nil {
+		utils.RespondError(c, http.StatusInternalServerError, "failed to mark notifications read")
+		return
+	}
+
+	utils.RespondJSON(c, http.StatusOK, gin.H{"marked_read": rowsAffected})
+}
+
 // createMentionNotifications parses @username mentions in text and inserts a
 // notification for each valid, non-blocked user other than the actor.
 func createMentionNotifications(db *sql.DB, actorID int64, ntype string, postID, commentID int64, text string) {

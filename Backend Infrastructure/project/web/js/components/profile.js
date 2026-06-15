@@ -33,12 +33,13 @@ const profileComponent = {
 
         if (!isCurrentUser) {
             try {
-                this.posts = await fetchUserPosts(userId);
+                const data = await fetchUserPosts(userId);
                 if (!token.isActive()) return;
-                if (this.posts.length > 0) {
+                this.posts = (data && data.posts) ? data.posts : [];
+                if (data && data.user) {
+                    this.user = data.user;
+                } else if (this.posts.length > 0) {
                     this.user = this.posts[0].user;
-                } else {
-                    this.userNotFound = true;
                 }
             } catch (err) {
                 if (!token.isActive()) return;

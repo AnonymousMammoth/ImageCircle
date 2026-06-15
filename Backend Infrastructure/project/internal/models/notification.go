@@ -109,6 +109,20 @@ func GetUnreadNotificationCount(db *sql.DB, userID int64) (int, error) {
 	return count, nil
 }
 
+// MarkNotificationsRead marks all unread explicit notifications for the given
+// user as read. It returns the number of rows affected.
+func MarkNotificationsRead(db *sql.DB, userID int64) (int64, error) {
+	result, err := db.Exec(`UPDATE notifications SET is_read = 1 WHERE user_id = ? AND is_read = 0`, userID)
+	if err != nil {
+		return 0, fmt.Errorf("mark notifications read: %w", err)
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("rows affected: %w", err)
+	}
+	return rowsAffected, nil
+}
+
 // CreateNotification inserts an explicit notification row.
 func CreateNotification(db *sql.DB, recipientID, actorID int64, ntype string, postID, commentID int64, textPreview string) error {
 	var postIDVal, commentIDVal sql.NullInt64

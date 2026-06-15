@@ -18,7 +18,17 @@ struct ForcePasswordChangeView: View {
     @Environment(\.dismiss) private var dismiss
     
     private var canSubmit: Bool {
-        newPassword.count >= 6 && newPassword == confirmPassword
+        newPassword.count >= PasswordValidator.minimumLength &&
+        PasswordValidator.isStrong(newPassword) &&
+        newPassword == confirmPassword
+    }
+
+    private var passwordHint: String {
+        PasswordValidator.strengthHint(for: newPassword)
+    }
+
+    private var showPasswordHint: Bool {
+        !newPassword.isEmpty && !PasswordValidator.isStrong(newPassword)
     }
     
     var body: some View {
@@ -49,12 +59,19 @@ struct ForcePasswordChangeView: View {
                             .padding()
                             .background(Color(.secondarySystemBackground))
                             .clipShape(RoundedRectangle(cornerRadius: 12))
-                        
+
                         SecureField("Confirm New Password", text: $confirmPassword)
                             .textContentType(.newPassword)
                             .padding()
                             .background(Color(.secondarySystemBackground))
                             .clipShape(RoundedRectangle(cornerRadius: 12))
+
+                        if showPasswordHint {
+                            Text(passwordHint)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .multilineTextAlignment(.center)
+                        }
                     }
                     
                     Button(action: submit) {

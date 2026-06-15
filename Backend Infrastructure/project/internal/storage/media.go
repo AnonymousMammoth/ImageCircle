@@ -100,10 +100,19 @@ func (s *MediaStore) SaveMedia(userID int64, file multipart.File, header *multip
 		}
 	}
 
-	_, err = io.Copy(dst, reader)
+	// Enforce the real upload size limit even when metadata stripping changes
+	// the byte count or when the caller ignores the reported header size.
+	reader = io.LimitReader(reader, maxSize+1)
+
+	written, err := io.Copy(dst, reader)
 	if err != nil {
 		_ = os.Remove(fullPath)
 		return "", "", fmt.Errorf("failed to write file: %w", err)
+	}
+
+	if written > maxSize {
+		_ = os.Remove(fullPath)
+		return "", "", fmt.Errorf("file too large: exceeds maximum %d bytes", maxSize)
 	}
 
 	return relativePath, filename, nil

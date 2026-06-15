@@ -45,7 +45,6 @@
                     const refreshed = await apiPost('/auth/refresh', {});
                     if (refreshed && refreshed.token) {
                         state.token = refreshed.token;
-                        state._persistToken();
                     }
                 } catch (_) {
                     // Cookie auth still works for fetch requests; media just falls
@@ -53,19 +52,6 @@
                 }
                 await refreshNotificationCount();
                 return;
-            }
-
-            // Fallback to a persisted JWT for browsers/environments where the
-            // cookie isn't available (e.g. some desktop browsers, incognito).
-            const token = state.loadPersistedToken();
-            if (token) {
-                state.token = token;
-                try { user = await fetchMe(); } catch (_) { user = null; }
-                if (user && user.id) {
-                    state.setAuth({ token, user });
-                    await refreshNotificationCount();
-                    return;
-                }
             }
 
             state.clearAuth();

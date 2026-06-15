@@ -27,7 +27,6 @@ const state = {
         this.cookieAuth = false;
         this.authRequiredFired = false;
         this.requiresPasswordChange = !!(this.user && this.user.password_change_required);
-        this._persistToken();
     },
 
     setAuthFromCookie(user) {
@@ -52,24 +51,5 @@ const state = {
 
     setNotificationCount(count) {
         this.notificationCount = Math.max(0, parseInt(count, 10) || 0);
-    },
-
-    loadPersistedToken() {
-        try {
-            const t = localStorage.getItem('circle_token');
-            return t || null;
-        } catch (_) {
-            return null;
-        }
-    },
-
-    _persistToken() {
-        try {
-            if (this.token) {
-                localStorage.setItem('circle_token', this.token);
-            } else {
-                localStorage.removeItem('circle_token');
-            }
-        } catch (_) {}
     }
 };

@@ -151,8 +151,11 @@ async function searchUsers(query) {
 }
 
 async function fetchUserPosts(userId) {
-    const data = await apiGet('/users/' + userId + '/posts');
-    return data && data.posts ? data.posts : [];
+    return apiGet('/users/' + userId + '/posts');
+}
+
+async function markNotificationsRead() {
+    return apiRequest('POST', '/notifications/read', {});
 }
 
 async function updateDisplayName(displayName) {

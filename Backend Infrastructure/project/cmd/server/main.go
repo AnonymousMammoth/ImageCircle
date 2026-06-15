@@ -111,6 +111,10 @@ func main() {
 
 	// 8. Create gin router with middleware stack
 	router := gin.New()
+	router.ForwardedByClientIP = cfg.TrustProxy
+	if cfg.TrustProxy {
+		router.RemoteIPHeaders = []string{"X-Forwarded-For", "X-Real-Ip"}
+	}
 
 	// Recovery middleware (gin built-in, suppresses stack traces in release mode)
 	router.Use(gin.Recovery())
@@ -253,6 +257,7 @@ func main() {
 		// Notifications
 		auth.GET("/api/notifications", notificationHandler.ListNotifications)
 		auth.GET("/api/notifications/unread-count", notificationHandler.UnreadCount)
+		auth.POST("/api/notifications/read", notificationHandler.MarkRead)
 
 		// Reports
 		auth.POST("/api/reports", reportHandler.CreateReport)

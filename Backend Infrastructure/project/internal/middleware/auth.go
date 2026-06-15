@@ -24,8 +24,8 @@ const (
 
 // AuthRequired returns a middleware that validates the JWT Bearer token.
 // It first checks the Authorization header, then falls back to a cookie named
-// "circle_session" so that <img> tags and other browser-initiated requests can
-// be authenticated. It sets user_id, username, and is_admin in the gin context.
+// "circle_session" so that browser-initiated requests can be authenticated.
+// It sets user_id, username, and is_admin in the gin context.
 // If the token is missing, invalid, expired, or blacklisted, it returns 401.
 func AuthRequired(secret []byte) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -44,12 +44,6 @@ func AuthRequired(secret []byte) gin.HandlerFunc {
 			if err == nil && cookie != "" {
 				tokenString = cookie
 			}
-		}
-
-		// Fallback to a token query parameter for browser <img>/<video> tags in
-		// environments where the HttpOnly cookie cannot be sent.
-		if tokenString == "" {
-			tokenString = c.Query("token")
 		}
 
 		if tokenString == "" {

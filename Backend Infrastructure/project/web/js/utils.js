@@ -102,11 +102,7 @@ function initials(name) {
 }
 
 function authenticatedMediaUrl(url) {
-    if (!url) return null;
-    if (typeof state !== 'undefined' && state && state.token) {
-        return url + (url.indexOf('?') >= 0 ? '&' : '?') + 'token=' + encodeURIComponent(state.token);
-    }
-    return url;
+    return url || null;
 }
 
 function avatarUrl(user) {

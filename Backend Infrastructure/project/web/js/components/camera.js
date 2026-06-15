@@ -14,6 +14,7 @@ const cameraComponent = {
     holdStartTime: 0,
     holdThresholdMs: 250,
     didRecord: false,
+    recorderMimeType: '',
 
     open(onComplete) {
         this.onComplete = onComplete;
@@ -158,6 +159,7 @@ const cameraComponent = {
             this.didRecord = true;
             return;
         }
+        this.recorderMimeType = mimeType;
 
         this.isRecording = true;
         this.didRecord = true;
@@ -170,6 +172,7 @@ const cameraComponent = {
         } catch (err) {
             this.showError('Video recording is not supported on this device.');
             this.isRecording = false;
+            this.recorderMimeType = '';
             if (shutter) shutter.classList.remove('recording');
             return;
         }
@@ -179,8 +182,10 @@ const cameraComponent = {
         };
 
         this.mediaRecorder.onstop = () => {
-            const blob = new Blob(this.recordedChunks, { type: mimeType });
-            const file = new File([blob], 'camera-video.mp4', { type: mimeType });
+            const blobType = this.recorderMimeType || mimeType;
+            const blob = new Blob(this.recordedChunks, { type: blobType });
+            const ext = blobType === 'video/mp4' ? '.mp4' : '.webm';
+            const file = new File([blob], 'camera-video' + ext, { type: blobType });
             this.complete(file);
         };
 
@@ -198,8 +203,16 @@ const cameraComponent = {
     },
 
     getRecorderMimeType() {
-        if (MediaRecorder.isTypeSupported('video/mp4')) {
-            return 'video/mp4';
+        const types = [
+            'video/mp4',
+            'video/webm;codecs=vp9',
+            'video/webm;codecs=vp8',
+            'video/webm'
+        ];
+        for (let i = 0; i < types.length; i++) {
+            if (MediaRecorder.isTypeSupported(types[i])) {
+                return types[i];
+            }
         }
         return '';
     },
@@ -241,5 +254,6 @@ const cameraComponent = {
         this.mediaRecorder = null;
         this.recordedChunks = [];
         this.didRecord = false;
+        this.recorderMimeType = '';
     }
 };
