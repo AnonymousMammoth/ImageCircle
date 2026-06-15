@@ -128,24 +128,40 @@ function renderAvatar(user, size, options) {
     const wrapper = createEl('div', { className: 'avatar', style: 'width:' + sizePx + 'px;height:' + sizePx + 'px;' });
     if (url) {
         const img = createEl('img', {
-            src: url,
             alt: user && user.username ? user.username : '',
             loading: options.eager ? 'eager' : 'lazy'
         });
-        img.onerror = function() {
-            img.remove();
-            wrapper.textContent = initial;
-            wrapper.classList.add('avatar-placeholder');
-        };
-        img.onload = function() {
-            wrapper.classList.remove('avatar-placeholder');
-        };
         wrapper.appendChild(img);
+        loadAuthenticatedImage(url, img, wrapper, initial);
     } else {
         wrapper.textContent = initial;
         wrapper.classList.add('avatar-placeholder');
     }
     return wrapper;
+}
+
+// Loads an authenticated image through fetch so the Authorization header / cookie
+// is reliably sent, then sets a blob URL on the <img>. This avoids Safari/PWA
+// quirks where <img> subresources may not carry the session cookie.
+async function loadAuthenticatedImage(url, img, wrapper, fallbackInitial) {
+    try {
+        const headers = {};
+        if (state.token) {
+            headers['Authorization'] = 'Bearer ' + state.token;
+        }
+        const response = await fetch(url, { credentials: 'same-origin', headers });
+        if (!response.ok) throw new Error('status ' + response.status);
+        const blob = await response.blob();
+        img.src = URL.createObjectURL(blob);
+        img.onload = function() {
+            wrapper.classList.remove('avatar-placeholder');
+        };
+    } catch (err) {
+        img.remove();
+        wrapper.textContent = fallbackInitial;
+        wrapper.classList.add('avatar-placeholder');
+        console.warn('Failed to load avatar:', url, err);
+    }
 }
 
 function usernameDisplay(user) {
