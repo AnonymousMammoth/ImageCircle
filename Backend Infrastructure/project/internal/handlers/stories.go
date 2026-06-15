@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"database/sql"
-	"io"
 	"net/http"
 	"strconv"
 	"time"
@@ -89,22 +88,8 @@ func (h *StoryHandler) CreateStory(c *gin.Context) {
 	}
 	defer mediaFile.Close()
 
-	// Validate no GPS data (only for images)
-	if mediaType == "image" {
-		detectedMime, err := storage.DetectMimeType(mediaFile)
-		if err != nil {
-			utils.RespondError(c, http.StatusBadRequest, "failed to detect media type")
-			return
-		}
-		mediaFile.Seek(0, io.SeekStart)
-		if err := h.MediaStore.ValidateNoGPS(mediaFile, detectedMime); err != nil {
-			utils.RespondError(c, http.StatusBadRequest, "image contains location data")
-			return
-		}
-		mediaFile.Seek(0, io.SeekStart)
-	}
-
-	// Save media file
+	// Save media file (JPEG/PNG metadata including GPS is stripped automatically).
+	// No extra GPS validation is needed anymore.
 	_, mediaFilename, err := h.MediaStore.SaveMedia(userID, mediaFile, mediaHeader, h.MaxSize)
 	if err != nil {
 		utils.RespondError(c, http.StatusBadRequest, err.Error())

@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -40,24 +39,7 @@ func (h *MediaHandler) Upload(c *gin.Context) {
 	}
 	defer mediaFile.Close()
 
-	// Detect MIME type for validation
-	detectedMime, err := storage.DetectMimeType(mediaFile)
-	if err != nil {
-		utils.RespondError(c, http.StatusBadRequest, "failed to detect media type")
-		return
-	}
-
-	// Validate no GPS data in the image
-	mediaFile.Seek(0, io.SeekStart)
-	if err := h.MediaStore.ValidateNoGPS(mediaFile, detectedMime); err != nil {
-		utils.RespondError(c, http.StatusBadRequest, "image contains location data")
-		return
-	}
-
-	// Reset file after GPS check
-	mediaFile.Seek(0, io.SeekStart)
-
-	// Save media file
+	// Save media file (JPEG/PNG metadata including GPS is stripped automatically).
 	_, filename, err := h.MediaStore.SaveMedia(userID, mediaFile, mediaHeader, h.MaxSize)
 	if err != nil {
 		utils.RespondError(c, http.StatusBadRequest, err.Error())

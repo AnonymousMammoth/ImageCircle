@@ -56,9 +56,10 @@ const notificationsComponent = {
         const text = createEl('div', { className: 'notification-text' });
         const actorName = createEl('span', { className: 'author', text: usernameDisplay(actor) });
         text.appendChild(actorName);
-        if (notification.type === 'like') {
+        const type = notification.type || '';
+        if (type === 'like') {
             text.appendChild(document.createTextNode(' liked your post.'));
-        } else if (notification.type === 'comment') {
+        } else if (type === 'comment') {
             text.appendChild(document.createTextNode(' commented: '));
             const commentText = createEl('span', { className: 'notification-comment', text: comment.text || '' });
             text.appendChild(commentText);
@@ -69,7 +70,7 @@ const notificationsComponent = {
         body.appendChild(createEl('div', { className: 'time', text: relativeTime(notification.created_at) }));
         item.appendChild(body);
 
-        if (post.id) {
+        if (post && post.id) {
             const thumb = createEl('div', { className: 'notification-thumb' });
             if (!isTextOnlyPost(post)) {
                 const url = postThumbnailUrl(post);
@@ -84,7 +85,8 @@ const notificationsComponent = {
         }
 
         item.addEventListener('click', () => {
-            if (post.id) router.navigate('/profile/' + (post.user_id || actor.id));
+            const targetUserId = (post && post.user_id) || actor.id;
+            if (targetUserId) router.navigate('/profile/' + targetUserId);
         });
 
         return item;

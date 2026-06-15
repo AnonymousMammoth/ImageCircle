@@ -71,7 +71,7 @@ function parseISO8601(string) {
 
 function relativeTime(isoString) {
     const date = parseISO8601(isoString);
-    if (!date) return isoString || '';
+    if (!date) return '';
     const interval = (Date.now() - date.getTime()) / 1000;
     if (interval < 10) return 'just now';
     if (interval < 60) return Math.floor(interval) + 's';

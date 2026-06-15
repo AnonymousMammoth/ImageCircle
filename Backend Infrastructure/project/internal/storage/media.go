@@ -1,15 +1,18 @@
 package storage
 
 import (
+	"bytes"
 	"fmt"
+	"image/jpeg"
+	"image/png"
 	"io"
 	"mime/multipart"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/disintegration/imaging"
 	"github.com/google/uuid"
-	"github.com/rwcarlsen/goexif/exif"
 )
 
 var allowedMimeTypes = map[string]string{
@@ -40,7 +43,8 @@ func NewMediaStore(basePath string) *MediaStore {
 }
 
 // SaveMedia saves an uploaded file to /{basePath}/{userID}/{uuid}.{ext}.
-// It validates file type, file size, and magic bytes.
+// It validates file type, file size, and magic bytes, and strips EXIF/GPS
+// metadata from JPEG and PNG images for privacy.
 // Returns: relative path (e.g., "1/abc123.jpg"), full filename, error.
 func (s *MediaStore) SaveMedia(userID int64, file multipart.File, header *multipart.FileHeader, maxSize int64) (string, string, error) {
 	if header.Size > maxSize {
@@ -87,13 +91,43 @@ func (s *MediaStore) SaveMedia(userID int64, file multipart.File, header *multip
 	}
 	defer dst.Close()
 
-	_, err = io.Copy(dst, file)
+	// Strip EXIF/GPS metadata from JPEG/PNG images for privacy. HEIC and video
+	// files are saved as-is because reliable metadata stripping isn't available.
+	var reader io.Reader = file
+	if detectedMime == "image/jpeg" || detectedMime == "image/png" {
+		if stripped, stripErr := stripImageMetadata(file, detectedMime); stripErr == nil {
+			reader = stripped
+		}
+	}
+
+	_, err = io.Copy(dst, reader)
 	if err != nil {
 		_ = os.Remove(fullPath)
 		return "", "", fmt.Errorf("failed to write file: %w", err)
 	}
 
 	return relativePath, filename, nil
+}
+
+// stripImageMetadata decodes and re-encodes an image to remove all EXIF/GPS
+// metadata while preserving orientation. Returns a reader over the stripped image.
+func stripImageMetadata(r io.Reader, mimeType string) (io.Reader, error) {
+	img, err := imaging.Decode(r, imaging.AutoOrientation(true))
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode image for metadata stripping: %w", err)
+	}
+
+	var buf bytes.Buffer
+	if mimeType == "image/jpeg" {
+		err = jpeg.Encode(&buf, img, &jpeg.Options{Quality: 92})
+	} else {
+		err = png.Encode(&buf, img)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to re-encode image after metadata stripping: %w", err)
+	}
+
+	return bytes.NewReader(buf.Bytes()), nil
 }
 
 // DeleteMedia removes a media file by relative path.
@@ -124,46 +158,6 @@ func DetectMimeType(file multipart.File) (string, error) {
 		return "", fmt.Errorf("empty file")
 	}
 	return detectMimeType(buf[:n]), nil
-}
-
-// ValidateNoGPS checks if an image contains EXIF GPS data.
-// Returns an error if GPS data is found, indicating the upload should be rejected.
-// Skips the check for HEIC files and video files due to limited EXIF support.
-func (s *MediaStore) ValidateNoGPS(file multipart.File, mimeType string) error {
-	if mimeType == "image/heic" || mimeType == "video/mp4" || mimeType == "video/quicktime" {
-		return nil
-	}
-
-	if mimeType != "image/jpeg" && mimeType != "image/png" {
-		return nil
-	}
-
-	_, err := file.Seek(0, io.SeekStart)
-	if err != nil {
-		return fmt.Errorf("failed to seek file for EXIF check: %w", err)
-	}
-
-	x, err := exif.Decode(file)
-	if err != nil {
-		return nil
-	}
-
-	_, err = x.Get(exif.GPSLatitude)
-	if err == nil {
-		return fmt.Errorf("image contains GPS location data")
-	}
-
-	_, err = x.Get(exif.GPSLongitude)
-	if err == nil {
-		return fmt.Errorf("image contains GPS location data")
-	}
-
-	tag, err := x.Get(exif.GPSInfoIFDPointer)
-	if err == nil && tag != nil {
-		return fmt.Errorf("image contains GPS location data")
-	}
-
-	return nil
 }
 
 // detectMimeType detects the MIME type from file magic bytes.

@@ -238,8 +238,9 @@ const shell = {
             const isActive = tabId === active;
             btn.classList.toggle('active', isActive);
             const iconKey = isActive && filledIcons[tabId] ? filledIcons[tabId] : tabId;
+            const iconSvg = this.icons[iconKey] || '';
             const label = btn.querySelector('span').textContent;
-            btn.innerHTML = this.icons[iconKey] + '<span>' + escapeHtml(label) + '</span>';
+            btn.innerHTML = iconSvg + '<span>' + escapeHtml(label) + '</span>';
         });
 
         $$('.sidebar-item', this.root).forEach(btn => {
@@ -247,8 +248,9 @@ const shell = {
             const isActive = tabId === active;
             btn.classList.toggle('active', isActive);
             const iconKey = isActive && filledIcons[tabId] ? filledIcons[tabId] : tabId;
+            const iconSvg = this.icons[iconKey] || '';
             const label = btn.querySelector('span').textContent;
-            btn.innerHTML = this.icons[iconKey] + '<span>' + escapeHtml(label) + '</span>';
+            btn.innerHTML = iconSvg + '<span>' + escapeHtml(label) + '</span>';
         });
     },
 
