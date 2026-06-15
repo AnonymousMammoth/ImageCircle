@@ -258,7 +258,7 @@ final class APIClient {
     }
     
     private struct CommentsResponse: Codable {
-        let comments: [Comment]
+        let comments: [Comment]?
     }
     
     private struct StoriesResponse: Codable {
@@ -378,7 +378,7 @@ final class APIClient {
         let url = try apiURL(path: "posts/\(postID)/comments")
         let req = request(for: url)
         let response: CommentsResponse = try await perform(req)
-        return response.comments
+        return response.comments ?? []
     }
     
     func postComment(postID: Int, text: String) async throws -> Comment {

@@ -12,6 +12,7 @@ struct HomeView: View {
     
     @State private var posts: [Post] = []
     @State private var stories: [Story] = []
+    @State private var ownStory: Story?
     @State private var isLoading = false
     @State private var errorMessage: String?
     @State private var showError = false
@@ -36,6 +37,7 @@ struct HomeView: View {
                             selectedStory = story
                             showStoryViewer = true
                         },
+                        ownStory: ownStory,
                         onAddStoryTapped: { showCamera = true },
                         showAddButton: true
                     )
@@ -159,7 +161,18 @@ struct HomeView: View {
     
     private func loadStories() async {
         do {
-            stories = try await APIClient.shared.fetchStories()
+            async let otherStories = APIClient.shared.fetchStories()
+            let loadedOthers = try await otherStories
+            
+            if let currentUserID = AuthManager.shared.currentUser?.id {
+                async let myStories = APIClient.shared.fetchStories(userID: currentUserID)
+                let loadedMine = try await myStories
+                ownStory = loadedMine.first
+                stories = loadedOthers.filter { $0.user.id != currentUserID }
+            } else {
+                ownStory = nil
+                stories = loadedOthers
+            }
         } catch {
             // Stories failure is non-fatal; don't alert.
         }

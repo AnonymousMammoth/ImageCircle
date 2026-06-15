@@ -11,6 +11,7 @@ import Kingfisher
 struct StoriesTrayView: View {
     let stories: [Story]
     let onStorySelected: (Story) -> Void
+    var ownStory: Story? = nil
     var onAddStoryTapped: (() -> Void)? = nil
     var showAddButton: Bool = false
     
@@ -29,6 +30,11 @@ struct StoriesTrayView: View {
             HStack(spacing: 16) {
                 if showAddButton {
                     AddStoryCircle(action: { onAddStoryTapped?() })
+                }
+                if let ownStory = ownStory {
+                    StoryCircle(story: ownStory) {
+                        onStorySelected(ownStory)
+                    }
                 }
                 ForEach(uniqueUserStories) { story in
                     StoryCircle(story: story) {

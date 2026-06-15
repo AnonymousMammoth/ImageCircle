@@ -43,11 +43,11 @@ func CreateStory(db *sql.DB, userID int64, mediaFilename, thumbnailFilename, med
 
 // GetActiveStories retrieves non-expired stories not viewed by the requesting user,
 // ordered by created_at descending. Includes user info and view count.
-func GetActiveStories(db *sql.DB, requestingUserID int64) ([]*Story, error) {
+func GetActiveStories(db *sql.DB, requestingUserID int64, limit, offset int) ([]*Story, error) {
 	query := `
 		SELECT
 			s.id, s.user_id, s.media_filename, s.thumbnail_filename, s.media_type, s.created_at, s.expires_at,
-			u.id, u.username, u.display_name, u.password_hash, u.is_admin, u.password_change_required, u.created_at,
+			u.id, u.username, u.display_name, u.password_hash, u.is_admin, u.password_change_required, u.avatar_filename, u.created_at,
 			(SELECT COUNT(*) FROM story_views WHERE story_id = s.id) AS view_count
 		FROM stories s
 		JOIN users u ON s.user_id = u.id
@@ -58,8 +58,9 @@ func GetActiveStories(db *sql.DB, requestingUserID int64) ([]*Story, error) {
 			  WHERE sv.story_id = s.id AND sv.user_id = ?
 		  )
 		ORDER BY s.created_at DESC
+		LIMIT ? OFFSET ?
 	`
-	rows, err := db.Query(query, requestingUserID, requestingUserID)
+	rows, err := db.Query(query, requestingUserID, requestingUserID, limit, offset)
 	if err != nil {
 		return nil, fmt.Errorf("query active stories: %w", err)
 	}
@@ -69,8 +70,8 @@ func GetActiveStories(db *sql.DB, requestingUserID int64) ([]*Story, error) {
 	return scanStories(rows, 0)
 }
 
-// GetStoriesByUser retrieves active stories for a specific user.
-func GetStoriesByUser(db *sql.DB, userID, requestingUserID int64) ([]*Story, error) {
+// GetStoriesByUser retrieves active stories for a specific user, paginated.
+func GetStoriesByUser(db *sql.DB, userID, requestingUserID int64, limit, offset int) ([]*Story, error) {
 	query := `
 		SELECT
 			s.id, s.user_id, s.media_filename, s.thumbnail_filename, s.media_type, s.created_at, s.expires_at,
@@ -82,8 +83,9 @@ func GetStoriesByUser(db *sql.DB, userID, requestingUserID int64) ([]*Story, err
 		WHERE s.user_id = ?
 		  AND s.expires_at > datetime('now')
 		ORDER BY s.created_at DESC
+		LIMIT ? OFFSET ?
 	`
-	rows, err := db.Query(query, requestingUserID, userID)
+	rows, err := db.Query(query, requestingUserID, userID, limit, offset)
 	if err != nil {
 		return nil, fmt.Errorf("query user stories: %w", err)
 	}
@@ -253,7 +255,7 @@ func scanStory(row *sql.Row, requestingUserID int64) (*Story, error) {
 
 // scanStories scans multiple story rows.
 func scanStories(rows *sql.Rows, requestingUserID int64) ([]*Story, error) {
-	var stories []*Story
+	stories := make([]*Story, 0)
 
 	for rows.Next() {
 		var s Story

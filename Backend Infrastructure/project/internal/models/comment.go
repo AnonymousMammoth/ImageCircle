@@ -35,9 +35,9 @@ func CreateComment(db *sql.DB, postID, userID int64, text string) (*Comment, err
 	return GetCommentByID(db, id)
 }
 
-// GetCommentsByPost retrieves all comments for a post ordered by created_at descending.
-// Includes user info for each comment.
-func GetCommentsByPost(db *sql.DB, postID int64) ([]*Comment, error) {
+// GetCommentsByPost retrieves comments for a post ordered by created_at descending,
+// paginated by limit and offset. Includes user info for each comment.
+func GetCommentsByPost(db *sql.DB, postID int64, limit, offset int) ([]*Comment, error) {
 	query := `
 		SELECT
 			c.id, c.post_id, c.user_id, c.text, c.created_at,
@@ -46,8 +46,9 @@ func GetCommentsByPost(db *sql.DB, postID int64) ([]*Comment, error) {
 		JOIN users u ON c.user_id = u.id
 		WHERE c.post_id = ?
 		ORDER BY c.created_at DESC
+		LIMIT ? OFFSET ?
 	`
-	rows, err := db.Query(query, postID)
+	rows, err := db.Query(query, postID, limit, offset)
 	if err != nil {
 		return nil, fmt.Errorf("query comments by post: %w", err)
 	}
@@ -137,7 +138,7 @@ func scanComment(row *sql.Row) (*Comment, error) {
 
 // scanComments scans multiple comment rows.
 func scanComments(rows *sql.Rows) ([]*Comment, error) {
-	var comments []*Comment
+	comments := make([]*Comment, 0)
 
 	for rows.Next() {
 		var c Comment

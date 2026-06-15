@@ -85,7 +85,7 @@
 | nginx upload size limit | PASS | `client_max_body_size 50M` matches app limit |
 | Graceful shutdown | PASS | SIGINT/SIGTERM handled; 10s timeout for in-flight requests |
 | SQLite WAL mode | PASS | `journal_mode=WAL` for better concurrency; foreign keys enabled |
-| Connection limits | PASS | MaxOpenConns=1, MaxIdleConns=1 (correct for SQLite) |
+| Connection limits | PASS | MaxOpenConns=25, MaxIdleConns=25 with WAL mode for concurrent reads |
 
 ## 7. Recommendations (Post-Deploy)
 

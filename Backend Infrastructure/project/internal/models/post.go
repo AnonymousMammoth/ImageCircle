@@ -98,8 +98,9 @@ func GetPostByIDWithUserContext(db *sql.DB, id, requestingUserID int64) (*Post, 
 	return scanPost(row, requestingUserID)
 }
 
-// GetFeed retrieves all posts chronologically descending with engagement stats.
-func GetFeed(db *sql.DB, requestingUserID int64) ([]*Post, error) {
+// GetFeed retrieves posts chronologically descending with engagement stats,
+// paginated by limit and offset.
+func GetFeed(db *sql.DB, requestingUserID int64, limit, offset int) ([]*Post, error) {
 	query := `
 		SELECT
 			p.id, p.user_id, p.caption, p.media_filename, p.thumbnail_filename, p.created_at,
@@ -110,8 +111,9 @@ func GetFeed(db *sql.DB, requestingUserID int64) ([]*Post, error) {
 		FROM posts p
 		JOIN users u ON p.user_id = u.id
 		ORDER BY p.created_at DESC
+		LIMIT ? OFFSET ?
 	`
-	rows, err := db.Query(query, requestingUserID)
+	rows, err := db.Query(query, requestingUserID, limit, offset)
 	if err != nil {
 		return nil, fmt.Errorf("query feed: %w", err)
 	}
@@ -120,8 +122,9 @@ func GetFeed(db *sql.DB, requestingUserID int64) ([]*Post, error) {
 	return scanPosts(rows, requestingUserID)
 }
 
-// GetPostsByUser retrieves posts by a specific user with engagement stats.
-func GetPostsByUser(db *sql.DB, userID, requestingUserID int64) ([]*Post, error) {
+// GetPostsByUser retrieves posts by a specific user with engagement stats,
+// paginated by limit and offset.
+func GetPostsByUser(db *sql.DB, userID, requestingUserID int64, limit, offset int) ([]*Post, error) {
 	query := `
 		SELECT
 			p.id, p.user_id, p.caption, p.media_filename, p.thumbnail_filename, p.created_at,
@@ -133,8 +136,9 @@ func GetPostsByUser(db *sql.DB, userID, requestingUserID int64) ([]*Post, error)
 		JOIN users u ON p.user_id = u.id
 		WHERE p.user_id = ?
 		ORDER BY p.created_at DESC
+		LIMIT ? OFFSET ?
 	`
-	rows, err := db.Query(query, requestingUserID, userID)
+	rows, err := db.Query(query, requestingUserID, userID, limit, offset)
 	if err != nil {
 		return nil, fmt.Errorf("query posts by user: %w", err)
 	}
@@ -228,7 +232,7 @@ func scanPost(row *sql.Row, requestingUserID int64) (*Post, error) {
 
 // scanPosts scans multiple post rows.
 func scanPosts(rows *sql.Rows, requestingUserID int64) ([]*Post, error) {
-	var posts []*Post
+	posts := make([]*Post, 0)
 
 	for rows.Next() {
 		var p Post

@@ -22,17 +22,13 @@ struct CameraView: View {
     
     @StateObject private var camera = CameraCaptureManager()
     @State private var isHoldingVideo = false
-    @State private var videoProgress: CGFloat = 0
-    @State private var selectedLibraryItem: PhotosPickerItem?
     @State private var capturedImage: UIImage?
     @State private var capturedVideoURL: URL?
     @State private var showError = false
     @State private var errorMessage: String?
     @State private var showLibrary = false
+    @State private var didPublish = false
     @Environment(\.dismiss) private var dismiss
-    
-    private let maxVideoDuration: CGFloat = 30
-    private let videoTimerInterval: CGFloat = 0.05
     
     var body: some View {
         NavigationStack {
@@ -71,27 +67,35 @@ struct CameraView: View {
             } message: {
                 Text(errorMessage ?? "Could not access camera.")
             }
-            .fullScreenCover(isPresented: Binding(
-                get: { capturedImage != nil || capturedVideoURL != nil },
-                set: { if !$0 { capturedImage = nil; capturedVideoURL = nil } }
-            )) {
+            .fullScreenCover(
+                isPresented: Binding(
+                    get: { capturedImage != nil || capturedVideoURL != nil },
+                    set: { if !$0 { capturedImage = nil; capturedVideoURL = nil } }
+                ),
+                onDismiss: {
+                    if didPublish {
+                        didPublish = false
+                        onFinished(true)
+                    }
+                }
+            ) {
                 if let image = capturedImage {
                     MediaPreviewView(
                         image: image,
                         videoURL: nil,
                         mode: .photo,
-                        onComplete: { onFinished(true) }
+                        onComplete: { didPublish = true }
                     )
                 } else if let videoURL = capturedVideoURL {
                     MediaPreviewView(
                         image: nil,
                         videoURL: videoURL,
                         mode: .video,
-                        onComplete: { onFinished(true) }
+                        onComplete: { didPublish = true }
                     )
                 }
             }
-            .sheet(isPresented: $showLibrary) {
+            .sheet(isPresented: $showLibrary, onDismiss: { showLibrary = false }) {
                 LibraryPicker { image, videoURL in
                     if let image = image {
                         capturedImage = image
@@ -104,6 +108,7 @@ struct CameraView: View {
                 if let message = message {
                     errorMessage = message
                     showError = true
+                    camera.clearError()
                 }
             }
         }
@@ -148,9 +153,9 @@ struct CameraView: View {
                             .scaleEffect(isHoldingVideo ? 0.85 : 1.0)
                             .animation(.easeInOut(duration: 0.15), value: isHoldingVideo)
                         
-                        if isHoldingVideo {
+                        if camera.isRecording {
                             Circle()
-                                .trim(from: 0, to: videoProgress)
+                                .trim(from: 0, to: camera.recordingProgress)
                                 .stroke(Color.red, style: StrokeStyle(lineWidth: 6, lineCap: .round))
                                 .frame(width: 92, height: 92)
                                 .rotationEffect(.degrees(-90))
@@ -159,23 +164,23 @@ struct CameraView: View {
                     .contentShape(Circle())
                     .gesture(
                         LongPressGesture(minimumDuration: 0.3, maximumDistance: 40)
-                            .onEnded { _ in
-                                stopVideoRecording()
+                            .onEnded { [self] _ in
+                                self.stopVideoRecording()
                             }
                             .sequenced(before: DragGesture(minimumDistance: 0))
-                            .onChanged { value in
+                            .onChanged { [self, camera] value in
                                 switch value {
                                 case .first(true):
                                     // Tap detected — take photo after a brief delay so a long press can win.
-                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
-                                        if !isHoldingVideo && !camera.isRecording {
-                                            capturePhoto()
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [self, camera] in
+                                        if !self.isHoldingVideo && !camera.isRecording {
+                                            self.capturePhoto()
                                         }
                                     }
                                 case .second(true, _):
                                     // Long press detected — start video.
                                     if !camera.isRecording {
-                                        startVideoRecording()
+                                        self.startVideoRecording()
                                     }
                                 default:
                                     break
@@ -249,11 +254,9 @@ struct CameraView: View {
     
     private func startVideoRecording() {
         isHoldingVideo = true
-        videoProgress = 0
         Task {
             do {
                 try await camera.startRecording()
-                startVideoProgressTimer()
             } catch {
                 isHoldingVideo = false
                 errorMessage = error.localizedDescription
@@ -270,57 +273,50 @@ struct CameraView: View {
             }
         }
     }
-    
-    private func startVideoProgressTimer() {
-        var elapsed: CGFloat = 0
-        Timer.scheduledTimer(withTimeInterval: videoTimerInterval, repeats: true) { timer in
-            guard camera.isRecording else {
-                timer.invalidate()
-                return
-            }
-            elapsed += videoTimerInterval
-            videoProgress = min(elapsed / maxVideoDuration, 1.0)
-            if elapsed >= maxVideoDuration {
-                timer.invalidate()
-                stopVideoRecording()
-            }
-        }
-    }
 }
 
 // MARK: - Camera Capture Manager
 
-@MainActor
 final class CameraCaptureManager: NSObject, ObservableObject {
     let session = AVCaptureSession()
     
     @Published var hasPermission = false
     @Published var isRecording = false
+    @Published var recordingProgress: CGFloat = 0
     @Published var errorMessage: String?
     
     private var photoOutput = AVCapturePhotoOutput()
     private var movieOutput = AVCaptureMovieFileOutput()
     private var videoDeviceInput: AVCaptureDeviceInput?
+    
+    private let sessionQueue = DispatchQueue(label: "com.mattmarsh.imagecircle.camera.session")
+    private let stateLock = NSLock()
     private var photoContinuation: CheckedContinuation<UIImage?, Error>?
     private var videoContinuation: CheckedContinuation<URL?, Never>?
     private var videoRecordingURL: URL?
+    private var recordingTimer: Timer?
     
-    private let sessionQueue = DispatchQueue(label: "com.mattmarsh.imagecircle.camera.session")
+    private let maxVideoDuration: CGFloat = 30
+    private let videoTimerInterval: CGFloat = 0.05
+    
+    func clearError() {
+        errorMessage = nil
+    }
     
     func checkPermissionAndSetup() async {
         let status = AVCaptureDevice.authorizationStatus(for: .video)
         switch status {
         case .authorized:
-            hasPermission = true
-            await configureSession()
+            await MainActor.run { hasPermission = true }
+            await setupSession()
         case .notDetermined:
             let granted = await AVCaptureDevice.requestAccess(for: .video)
-            hasPermission = granted
+            await MainActor.run { hasPermission = granted }
             if granted {
-                await configureSession()
+                await setupSession()
             }
         default:
-            hasPermission = false
+            await MainActor.run { hasPermission = false }
         }
         
         let audioStatus = AVCaptureDevice.authorizationStatus(for: .audio)
@@ -329,7 +325,18 @@ final class CameraCaptureManager: NSObject, ObservableObject {
         }
     }
     
-    private func configureSession() async {
+    private func setupSession() async {
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            sessionQueue.async { [weak self] in
+                defer { continuation.resume() }
+                guard let self = self else { return }
+                self.configureSession()
+                self.session.startRunning()
+            }
+        }
+    }
+    
+    private func configureSession() {
         session.beginConfiguration()
         defer { session.commitConfiguration() }
         
@@ -365,17 +372,9 @@ final class CameraCaptureManager: NSObject, ObservableObject {
                 session.addOutput(movieOutput)
             }
         } catch {
-            self.errorMessage = error.localizedDescription
-            return
-        }
-        
-        startSession()
-    }
-    
-    private func startSession() {
-        sessionQueue.async { [weak self] in
-            guard let self = self, !self.session.isRunning else { return }
-            self.session.startRunning()
+            DispatchQueue.main.async { [weak self] in
+                self?.errorMessage = error.localizedDescription
+            }
         }
     }
     
@@ -386,6 +385,30 @@ final class CameraCaptureManager: NSObject, ObservableObject {
         }
     }
     
+    private func startRecordingProgressTimer() {
+        var elapsed: CGFloat = 0
+        recordingTimer?.invalidate()
+        recordingProgress = 0
+        recordingTimer = Timer.scheduledTimer(withTimeInterval: videoTimerInterval, repeats: true) { [weak self] timer in
+            guard let self = self, self.isRecording else {
+                timer.invalidate()
+                return
+            }
+            elapsed += self.videoTimerInterval
+            self.recordingProgress = min(elapsed / self.maxVideoDuration, 1.0)
+            if elapsed >= self.maxVideoDuration {
+                timer.invalidate()
+                Task { await self.stopRecording() }
+            }
+        }
+    }
+    
+    private func stopRecordingProgressTimer() {
+        recordingTimer?.invalidate()
+        recordingTimer = nil
+        recordingProgress = 0
+    }
+    
     func capturePhoto() async throws -> UIImage? {
         try await withCheckedThrowingContinuation { continuation in
             sessionQueue.async { [weak self] in
@@ -393,7 +416,7 @@ final class CameraCaptureManager: NSObject, ObservableObject {
                     continuation.resume(throwing: NSError(domain: "Camera", code: -1, userInfo: [NSLocalizedDescriptionKey: "Camera unavailable"]))
                     return
                 }
-                self.photoContinuation = continuation
+                self.setPhotoContinuation(continuation)
                 let settings = AVCapturePhotoSettings()
                 self.photoOutput.capturePhoto(with: settings, delegate: self)
             }
@@ -419,8 +442,9 @@ final class CameraCaptureManager: NSObject, ObservableObject {
                     return
                 }
                 self.movieOutput.startRecording(to: url, recordingDelegate: self)
-                DispatchQueue.main.async {
-                    self.isRecording = true
+                DispatchQueue.main.async { [weak self] in
+                    self?.isRecording = true
+                    self?.startRecordingProgressTimer()
                 }
                 continuation.resume()
             }
@@ -428,55 +452,91 @@ final class CameraCaptureManager: NSObject, ObservableObject {
     }
     
     func stopRecording() async -> URL? {
-        guard isRecording else { return videoRecordingURL }
+        guard isRecording else { return nil }
         
-        return await withCheckedContinuation { continuation in
+        return await withCheckedContinuation { (continuation: CheckedContinuation<URL?, Never>) in
             sessionQueue.async { [weak self] in
                 guard let self = self else {
                     continuation.resume(returning: nil)
                     return
                 }
-                self.videoContinuation = continuation
+                self.setVideoContinuation(continuation)
                 if self.movieOutput.isRecording {
                     self.movieOutput.stopRecording()
                 } else {
-                    continuation.resume(returning: self.videoRecordingURL)
+                    let url = self.videoRecordingURL
+                    _ = self.clearVideoContinuation()
+                    DispatchQueue.main.async { [weak self] in
+                        self?.stopRecordingProgressTimer()
+                    }
+                    continuation.resume(returning: url)
                 }
             }
         }
+    }
+    
+    // MARK: - Continuation locking
+    
+    private func setPhotoContinuation(_ continuation: CheckedContinuation<UIImage?, Error>) {
+        stateLock.lock()
+        photoContinuation = continuation
+        stateLock.unlock()
+    }
+    
+    private func clearPhotoContinuation() -> CheckedContinuation<UIImage?, Error>? {
+        stateLock.lock()
+        let c = photoContinuation
+        photoContinuation = nil
+        stateLock.unlock()
+        return c
+    }
+    
+    private func setVideoContinuation(_ continuation: CheckedContinuation<URL?, Never>) {
+        stateLock.lock()
+        videoContinuation = continuation
+        stateLock.unlock()
+    }
+    
+    private func clearVideoContinuation() -> CheckedContinuation<URL?, Never>? {
+        stateLock.lock()
+        let c = videoContinuation
+        videoContinuation = nil
+        stateLock.unlock()
+        return c
     }
 }
 
 extension CameraCaptureManager: AVCapturePhotoCaptureDelegate {
     nonisolated func photoOutput(_ output: AVCapturePhotoOutput, didFinishProcessingPhoto photo: AVCapturePhoto, error: Error?) {
-        Task { @MainActor in
-            if let error = error {
-                self.photoContinuation?.resume(throwing: error)
-                self.photoContinuation = nil
-                return
+        if let error = error {
+            DispatchQueue.main.async { [weak self] in
+                self?.clearPhotoContinuation()?.resume(throwing: error)
             }
-            guard let data = photo.fileDataRepresentation(), let image = UIImage(data: data) else {
-                self.photoContinuation?.resume(throwing: NSError(domain: "Camera", code: -1, userInfo: [NSLocalizedDescriptionKey: "Could not process photo"]))
-                self.photoContinuation = nil
-                return
+            return
+        }
+        guard let data = photo.fileDataRepresentation(), let image = UIImage(data: data) else {
+            DispatchQueue.main.async { [weak self] in
+                self?.clearPhotoContinuation()?.resume(throwing: NSError(domain: "Camera", code: -1, userInfo: [NSLocalizedDescriptionKey: "Could not process photo"]))
             }
-            self.photoContinuation?.resume(returning: image)
-            self.photoContinuation = nil
+            return
+        }
+        DispatchQueue.main.async { [weak self] in
+            self?.clearPhotoContinuation()?.resume(returning: image)
         }
     }
 }
 
 extension CameraCaptureManager: AVCaptureFileOutputRecordingDelegate {
     nonisolated func fileOutput(_ output: AVCaptureFileOutput, didFinishRecordingTo outputFileURL: URL, from connections: [AVCaptureConnection], error: Error?) {
-        Task { @MainActor in
-            self.isRecording = false
+        DispatchQueue.main.async { [weak self] in
+            self?.isRecording = false
+            self?.stopRecordingProgressTimer()
             if let error = error {
-                self.errorMessage = error.localizedDescription
-                self.videoContinuation?.resume(returning: nil)
+                self?.errorMessage = error.localizedDescription
+                self?.clearVideoContinuation()?.resume(returning: nil)
             } else {
-                self.videoContinuation?.resume(returning: outputFileURL)
+                self?.clearVideoContinuation()?.resume(returning: outputFileURL)
             }
-            self.videoContinuation = nil
         }
     }
 }
@@ -486,26 +546,25 @@ extension CameraCaptureManager: AVCaptureFileOutputRecordingDelegate {
 struct CameraPreviewView: UIViewRepresentable {
     let session: AVCaptureSession
     
-    func makeUIView(context: Context) -> UIView {
-        let view = UIView(frame: UIScreen.main.bounds)
-        let previewLayer = AVCaptureVideoPreviewLayer(session: session)
-        previewLayer.frame = view.bounds
-        previewLayer.videoGravity = .resizeAspectFill
-        view.layer.addSublayer(previewLayer)
-        context.coordinator.previewLayer = previewLayer
+    func makeUIView(context: Context) -> CameraPreviewUIView {
+        let view = CameraPreviewUIView()
+        view.videoPreviewLayer.session = session
+        view.videoPreviewLayer.videoGravity = .resizeAspectFill
         return view
     }
     
-    func updateUIView(_ uiView: UIView, context: Context) {
-        context.coordinator.previewLayer?.frame = uiView.bounds
+    func updateUIView(_ uiView: CameraPreviewUIView, context: Context) {
+        uiView.videoPreviewLayer.frame = uiView.bounds
+    }
+}
+
+final class CameraPreviewUIView: UIView {
+    override class var layerClass: AnyClass {
+        return AVCaptureVideoPreviewLayer.self
     }
     
-    func makeCoordinator() -> Coordinator {
-        Coordinator()
-    }
-    
-    class Coordinator {
-        var previewLayer: AVCaptureVideoPreviewLayer?
+    var videoPreviewLayer: AVCaptureVideoPreviewLayer {
+        return layer as! AVCaptureVideoPreviewLayer
     }
 }
 

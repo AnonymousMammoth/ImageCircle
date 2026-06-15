@@ -191,7 +191,8 @@ func (j *CleanupJob) cleanupOrphanedMedia() {
 }
 
 // getReferencedMedia returns a set of all media filenames referenced
-// in posts and stories tables (media_filename and thumbnail_filename columns).
+// in posts, stories, and users tables (media_filename, thumbnail_filename,
+// and avatar_filename columns).
 func (j *CleanupJob) getReferencedMedia() (map[string]bool, error) {
 	referenced := make(map[string]bool)
 
@@ -248,6 +249,23 @@ func (j *CleanupJob) getReferencedMedia() (map[string]bool, error) {
 
 	// Query stories.thumbnail_filename
 	rows, err = j.db.Query(`SELECT thumbnail_filename FROM stories WHERE thumbnail_filename IS NOT NULL AND thumbnail_filename != ''`)
+	if err != nil {
+		return nil, err
+	}
+	for rows.Next() {
+		var fn string
+		if err := rows.Scan(&fn); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		if fn != "" {
+			referenced[fn] = true
+		}
+	}
+	rows.Close()
+
+	// Query users.avatar_filename
+	rows, err = j.db.Query(`SELECT avatar_filename FROM users WHERE avatar_filename IS NOT NULL AND avatar_filename != ''`)
 	if err != nil {
 		return nil, err
 	}

@@ -22,7 +22,7 @@ type CreateCommentRequest struct {
 	Text string `json:"text"`
 }
 
-// ListComments returns all comments for a post.
+// ListComments returns comments for a post, paginated by ?page and ?limit.
 func (h *CommentHandler) ListComments(c *gin.Context) {
 	postID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
@@ -41,7 +41,8 @@ func (h *CommentHandler) ListComments(c *gin.Context) {
 		return
 	}
 
-	comments, err := models.GetCommentsByPost(h.DB, postID)
+	page := utils.GetPagination(c)
+	comments, err := models.GetCommentsByPost(h.DB, postID, page.Limit, page.Offset)
 	if err != nil {
 		utils.RespondError(c, http.StatusInternalServerError, "failed to retrieve comments")
 		return

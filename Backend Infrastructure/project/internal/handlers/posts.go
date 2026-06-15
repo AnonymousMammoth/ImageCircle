@@ -21,11 +21,12 @@ type PostHandler struct {
 	MaxSize    int64
 }
 
-// ListPosts returns all posts in chronological order.
+// ListPosts returns posts in chronological order, paginated by ?page and ?limit.
 func (h *PostHandler) ListPosts(c *gin.Context) {
 	userID := c.GetInt64("user_id")
+	page := utils.GetPagination(c)
 
-	posts, err := models.GetFeed(h.DB, userID)
+	posts, err := models.GetFeed(h.DB, userID, page.Limit, page.Offset)
 	if err != nil {
 		utils.RespondError(c, http.StatusInternalServerError, "failed to retrieve posts")
 		return

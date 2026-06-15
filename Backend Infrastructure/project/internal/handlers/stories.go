@@ -25,11 +25,13 @@ type CreateStoryRequest struct {
 	MediaType string `form:"media_type"`
 }
 
-// ListStories returns active stories not yet viewed by the requesting user.
+// ListStories returns active stories not yet viewed by the requesting user,
+// paginated by ?page and ?limit.
 func (h *StoryHandler) ListStories(c *gin.Context) {
 	userID := c.GetInt64("user_id")
+	page := utils.GetPagination(c)
 
-	stories, err := models.GetActiveStories(h.DB, userID)
+	stories, err := models.GetActiveStories(h.DB, userID, page.Limit, page.Offset)
 	if err != nil {
 		utils.RespondError(c, http.StatusInternalServerError, "failed to retrieve stories")
 		return
@@ -117,7 +119,7 @@ func (h *StoryHandler) CreateStory(c *gin.Context) {
 		}
 	}
 
-	expiresAt := time.Now().UTC().Add(24 * time.Hour)
+	expiresAt := time.Now().UTC().Add(72 * time.Hour)
 
 	story, err := models.CreateStory(h.DB, userID, mediaFilename, thumbnailFilename, mediaType, expiresAt)
 	if err != nil {

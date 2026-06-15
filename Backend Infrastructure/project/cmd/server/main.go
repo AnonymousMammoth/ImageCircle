@@ -231,8 +231,11 @@ func main() {
 
 	// 12. Setup graceful shutdown
 	srv := &http.Server{
-		Addr:    cfg.ServerBind + ":" + cfg.Port,
-		Handler: router,
+		Addr:         cfg.ServerBind + ":" + cfg.Port,
+		Handler:      router,
+		ReadTimeout:  5 * time.Minute,
+		WriteTimeout: 5 * time.Minute,
+		IdleTimeout:  120 * time.Second,
 	}
 
 	// Start server in a goroutine

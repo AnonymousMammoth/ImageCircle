@@ -223,7 +223,7 @@ func scanUser(row *sql.Row) (*User, error) {
 
 // scanUsers scans multiple user rows.
 func scanUsers(rows *sql.Rows) ([]*User, error) {
-	var users []*User
+	users := make([]*User, 0)
 	for rows.Next() {
 		var u User
 		var isAdminInt int

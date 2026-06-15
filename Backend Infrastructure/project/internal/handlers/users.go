@@ -321,7 +321,7 @@ func (h *UserHandler) ToggleAdmin(c *gin.Context) {
 	utils.RespondJSON(c, http.StatusOK, user)
 }
 
-// GetUserPosts returns posts for a specific user.
+// GetUserPosts returns posts for a specific user, paginated by ?page and ?limit.
 func (h *UserHandler) GetUserPosts(c *gin.Context) {
 	requestingUserID := c.GetInt64("user_id")
 
@@ -341,7 +341,8 @@ func (h *UserHandler) GetUserPosts(c *gin.Context) {
 		return
 	}
 
-	posts, err := models.GetPostsByUser(h.DB, id, requestingUserID)
+	page := utils.GetPagination(c)
+	posts, err := models.GetPostsByUser(h.DB, id, requestingUserID, page.Limit, page.Offset)
 	if err != nil {
 		utils.RespondError(c, http.StatusInternalServerError, "failed to retrieve posts")
 		return
@@ -395,7 +396,7 @@ func (h *UserHandler) UpdateAvatar(c *gin.Context) {
 	utils.RespondJSON(c, http.StatusOK, user)
 }
 
-// GetUserStories returns active stories for a specific user.
+// GetUserStories returns active stories for a specific user, paginated by ?page and ?limit.
 func (h *UserHandler) GetUserStories(c *gin.Context) {
 	requestingUserID := c.GetInt64("user_id")
 
@@ -414,7 +415,8 @@ func (h *UserHandler) GetUserStories(c *gin.Context) {
 		return
 	}
 
-	stories, err := models.GetStoriesByUser(h.DB, id, requestingUserID)
+	page := utils.GetPagination(c)
+	stories, err := models.GetStoriesByUser(h.DB, id, requestingUserID, page.Limit, page.Offset)
 	if err != nil {
 		utils.RespondError(c, http.StatusInternalServerError, "failed to retrieve stories")
 		return

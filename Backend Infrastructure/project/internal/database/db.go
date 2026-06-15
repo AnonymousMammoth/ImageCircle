@@ -18,16 +18,16 @@ type DB struct {
 }
 
 // New opens a SQLite database at dbPath, applies required pragmas,
-// and runs the schema migration. It configures the connection pool
-// for SQLite's single-writer model.
+// and runs the schema migration. It configures a modest connection pool
+// that works safely with SQLite's WAL mode while allowing concurrent reads.
 func New(dbPath string) (*DB, error) {
 	conn, err := sql.Open("sqlite3", dbPath)
 	if err != nil {
 		return nil, fmt.Errorf("open database: %w", err)
 	}
 
-	conn.SetMaxOpenConns(1)
-	conn.SetMaxIdleConns(1)
+	conn.SetMaxOpenConns(25)
+	conn.SetMaxIdleConns(25)
 
 	if err := applyPragmas(conn); err != nil {
 		_ = conn.Close()
