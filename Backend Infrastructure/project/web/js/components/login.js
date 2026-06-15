@@ -93,10 +93,8 @@ const loginComponent = {
             state.setAuth(data);
             if (state.requiresPasswordChange) {
                 forcePasswordChangeComponent.setCurrentPassword(password);
-                router.navigate('/force-password-change');
-            } else {
-                router.navigate('/');
             }
+            router.navigate('/');
         } catch (err) {
             setText(errorEl, err.message);
             submitBtn.disabled = false;

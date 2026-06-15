@@ -73,11 +73,13 @@ const forcePasswordChangeComponent = {
             const data = await changePassword(currentPassword, newPassword);
             if (data && data.token) {
                 state.token = data.token;
+                state._persistToken();
             }
             const me = await fetchMe();
             state.updateUser(me);
             state.requiresPasswordChange = false;
             router.navigate('/');
+            shell.handleRoute();
         } catch (err) {
             setText(errorEl, err.message);
             submitBtn.disabled = false;

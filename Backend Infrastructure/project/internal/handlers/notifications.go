@@ -29,6 +29,19 @@ func (h *NotificationHandler) ListNotifications(c *gin.Context) {
 	utils.RespondJSON(c, http.StatusOK, gin.H{"notifications": notifications})
 }
 
+// UnreadCount returns the number of unread explicit notifications for the current user.
+func (h *NotificationHandler) UnreadCount(c *gin.Context) {
+	userID := c.GetInt64("user_id")
+
+	count, err := models.GetUnreadNotificationCount(h.DB, userID)
+	if err != nil {
+		utils.RespondError(c, http.StatusInternalServerError, "failed to retrieve unread count")
+		return
+	}
+
+	utils.RespondJSON(c, http.StatusOK, gin.H{"count": count})
+}
+
 // createMentionNotifications parses @username mentions in text and inserts a
 // notification for each valid, non-blocked user other than the actor.
 func createMentionNotifications(db *sql.DB, actorID int64, ntype string, postID, commentID int64, text string) {

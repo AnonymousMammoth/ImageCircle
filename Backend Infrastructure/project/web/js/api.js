@@ -170,8 +170,10 @@ async function uploadAvatar(file, progressCallback) {
 
 /* ---------- Posts ---------- */
 
-async function fetchFeed() {
-    const data = await apiGet('/posts');
+async function fetchFeed(page, limit) {
+    page = page || 1;
+    limit = limit || 15;
+    const data = await apiGet('/posts?page=' + page + '&limit=' + limit);
     return data && data.posts ? data.posts : [];
 }
 
@@ -217,6 +219,11 @@ async function deleteComment(commentId) {
 async function fetchNotifications() {
     const data = await apiGet('/notifications');
     return data && data.notifications ? data.notifications : [];
+}
+
+async function fetchUnreadNotificationCount() {
+    const data = await apiGet('/notifications/unread-count');
+    return data && typeof data.count === 'number' ? data.count : 0;
 }
 
 /* ---------- Stories ---------- */

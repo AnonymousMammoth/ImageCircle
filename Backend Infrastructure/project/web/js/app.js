@@ -15,6 +15,22 @@
         }
     }
 
+    async function refreshNotificationCount() {
+        if (!state.isAuthenticated) {
+            state.setNotificationCount(0);
+            return;
+        }
+        try {
+            const count = await fetchUnreadNotificationCount();
+            state.setNotificationCount(count);
+            if (shell && shell.updateNotificationBadge) {
+                shell.updateNotificationBadge();
+            }
+        } catch (_) {
+            // Non-fatal; badge simply won't update.
+        }
+    }
+
     async function restoreSession() {
         state.isLoadingAuth = true;
         try {
@@ -35,6 +51,7 @@
                     // Cookie auth still works for fetch requests; media just falls
                     // back to initials if the cookie is not sent for images.
                 }
+                await refreshNotificationCount();
                 return;
             }
 
@@ -46,6 +63,7 @@
                 try { user = await fetchMe(); } catch (_) { user = null; }
                 if (user && user.id) {
                     state.setAuth({ token, user });
+                    await refreshNotificationCount();
                     return;
                 }
             }
@@ -56,9 +74,26 @@
         }
     }
 
+    function registerServiceWorker() {
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js').catch((err) => {
+                console.warn('Service worker registration failed', err);
+            });
+        }
+    }
+
+    function detectIosStandalone() {
+        if (window.navigator.standalone === true) {
+            document.body.classList.add('ios-standalone');
+        }
+    }
+
     async function init() {
         // Convert path-based deep links to hash routes before the router runs.
         syncPathToHash();
+
+        // Register PWA service worker early.
+        registerServiceWorker();
 
         // Listen for auth required events
         window.addEventListener('circle:authrequired', () => {
@@ -82,6 +117,13 @@
                 router.navigate('/login');
             }
         }
+
+        // Refresh badge when the route changes.
+        window.addEventListener('circle:route', () => {
+            refreshNotificationCount();
+        });
+
+        detectIosStandalone();
     }
 
     if (document.readyState === 'loading') {

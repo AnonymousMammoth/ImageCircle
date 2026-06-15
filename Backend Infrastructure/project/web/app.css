@@ -273,6 +273,7 @@ label {
     align-items: center;
     justify-content: center;
     gap: 3px;
+    position: relative;
     border: none;
     background: transparent;
     color: var(--text-tertiary);
@@ -294,6 +295,28 @@ label {
 
 .tab-content {
     padding-bottom: calc(var(--tab-height) + var(--safe-bottom));
+}
+
+.notification-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    margin-left: 6px;
+    border-radius: 9px;
+    background: var(--pink);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1;
+}
+
+.tab-item .notification-badge {
+    position: absolute;
+    top: 4px;
+    margin-left: 18px;
 }
 
 /* ---------- Login ---------- */

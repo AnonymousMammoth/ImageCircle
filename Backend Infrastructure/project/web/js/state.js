@@ -11,6 +11,7 @@ const state = {
     requiresPasswordChange: false,
     isLoadingAuth: true,
     authRequiredFired: false,
+    notificationCount: 0,
 
     get isAuthenticated() {
         return !!this.token || !!this.cookieAuth;
@@ -47,6 +48,10 @@ const state = {
 
     updateUser(user) {
         this.user = user || this.user;
+    },
+
+    setNotificationCount(count) {
+        this.notificationCount = Math.max(0, parseInt(count, 10) || 0);
     },
 
     loadPersistedToken() {

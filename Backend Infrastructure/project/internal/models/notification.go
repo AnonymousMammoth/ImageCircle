@@ -88,6 +88,17 @@ func GetNotifications(db *sql.DB, userID int64, limit, offset int) ([]*Notificat
 	return scanNotifications(rows)
 }
 
+// GetUnreadNotificationCount returns the number of unread explicit notifications
+// for the given user.
+func GetUnreadNotificationCount(db *sql.DB, userID int64) (int, error) {
+	var count int
+	query := `SELECT COUNT(*) FROM notifications WHERE user_id = ? AND is_read = 0`
+	if err := db.QueryRow(query, userID).Scan(&count); err != nil {
+		return 0, fmt.Errorf("count unread notifications: %w", err)
+	}
+	return count, nil
+}
+
 // CreateNotification inserts an explicit notification row.
 func CreateNotification(db *sql.DB, recipientID, actorID int64, ntype string, postID, commentID int64, textPreview string) error {
 	var postIDVal, commentIDVal sql.NullInt64

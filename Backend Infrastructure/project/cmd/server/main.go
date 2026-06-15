@@ -252,6 +252,7 @@ func main() {
 
 		// Notifications
 		auth.GET("/api/notifications", notificationHandler.ListNotifications)
+		auth.GET("/api/notifications/unread-count", notificationHandler.UnreadCount)
 
 		// Reports
 		auth.POST("/api/reports", reportHandler.CreateReport)
@@ -316,6 +317,20 @@ func main() {
 	})
 	router.GET("/js/*filepath", func(c *gin.Context) {
 		serveWebStatic(c, "./web/js", "filepath")
+	})
+
+	// PWA manifest, service worker, and icons
+	router.GET("/manifest.json", func(c *gin.Context) {
+		c.Header("Cache-Control", "public, max-age=3600")
+		c.File("./web/manifest.json")
+	})
+	router.GET("/sw.js", func(c *gin.Context) {
+		c.Header("Cache-Control", "no-cache, no-store, must-revalidate")
+		c.Header("Content-Type", "application/javascript")
+		c.File("./web/sw.js")
+	})
+	router.GET("/icons/*filepath", func(c *gin.Context) {
+		serveWebStatic(c, "./web/icons", "filepath")
 	})
 
 	// Serve web app shell at root

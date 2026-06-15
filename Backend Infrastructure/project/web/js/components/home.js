@@ -8,6 +8,9 @@ const homeComponent = {
     filter: 'mixed',
     isLoading: false,
     hasLoaded: false,
+    page: 1,
+    hasMore: true,
+    observer: null,
     mountToken: null,
 
     render(container) {
@@ -102,8 +105,13 @@ const homeComponent = {
         }
 
         const filtered = this.filteredPosts();
-        if (filtered.length === 0) {
+        if (filtered.length === 0 && !this.isLoading) {
             container.appendChild(this.emptyState());
+            if (this.hasMore) {
+                const sentinel = createEl('div', { className: 'feed-sentinel', style: 'height: 1px;' });
+                container.appendChild(sentinel);
+                this.observeSentinel(sentinel);
+            }
             return;
         }
 
@@ -111,6 +119,35 @@ const homeComponent = {
             const card = postCardComponent.render(post, () => { this.hasLoaded = false; this.loadData(); }, (p) => commentsComponent.open(p));
             container.appendChild(card);
         });
+
+        if (this.isLoading && this.posts.length > 0) {
+            container.appendChild(createEl('div', { className: 'loading-center', style: 'padding: 24px 0;' }, [createEl('div', { className: 'spinner' })]));
+        }
+
+        if (this.hasMore) {
+            const sentinel = createEl('div', { className: 'feed-sentinel', style: 'height: 1px;' });
+            container.appendChild(sentinel);
+            this.observeSentinel(sentinel);
+        }
+    },
+
+    observeSentinel(sentinel) {
+        if (this.observer) {
+            this.observer.disconnect();
+            this.observer = null;
+        }
+        if (!window.IntersectionObserver) {
+            // Fallback for very old browsers: do nothing; user can pull-to-refresh.
+            return;
+        }
+        this.observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting && this.hasMore && !this.isLoading) {
+                    this.loadMore();
+                }
+            });
+        }, { root: document.getElementById('main-content'), rootMargin: '200px' });
+        this.observer.observe(sentinel);
     },
 
     emptyState() {
@@ -132,16 +169,24 @@ const homeComponent = {
         if (this.isLoading) return;
         token = token || this.mountToken;
         this.isLoading = true;
+        this.page = 1;
+        this.hasMore = true;
+        this.posts = [];
+        if (this.observer) {
+            this.observer.disconnect();
+            this.observer = null;
+        }
         const feed = document.getElementById('feed-container');
         if (feed && token && token.isActive()) this.renderFeed(feed);
 
         try {
             const [posts, stories] = await Promise.all([
-                fetchFeed(),
+                fetchFeed(this.page, 15),
                 fetchStories()
             ]);
             if (!token || !token.isActive()) return;
             this.posts = posts;
+            this.hasMore = posts.length === 15;
 
             let allStories = stories;
             if (state.user && state.user.id) {
@@ -179,6 +224,31 @@ const homeComponent = {
                 });
                 tray.replaceWith(newTray);
             }
+            const feed2 = document.getElementById('feed-container');
+            if (feed2) this.renderFeed(feed2);
+        }
+    },
+
+    async loadMore() {
+        if (this.isLoading || !this.hasMore) return;
+        this.isLoading = true;
+        this.page += 1;
+        const feed = document.getElementById('feed-container');
+        if (feed) this.renderFeed(feed);
+
+        try {
+            const posts = await fetchFeed(this.page, 15);
+            if (posts.length === 0) {
+                this.hasMore = false;
+            } else {
+                this.posts = this.posts.concat(posts);
+                this.hasMore = posts.length === 15;
+            }
+        } catch (err) {
+            console.error(err);
+            this.page -= 1;
+        } finally {
+            this.isLoading = false;
             const feed2 = document.getElementById('feed-container');
             if (feed2) this.renderFeed(feed2);
         }

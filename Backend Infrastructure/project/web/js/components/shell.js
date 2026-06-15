@@ -78,7 +78,7 @@ const shell = {
                 className: 'tab-item' + (active ? ' active' : ''),
                 'data-tab': tab.id
             });
-            btn.innerHTML = this.icons[active ? tab.activeIcon : tab.icon] + '<span>' + escapeHtml(tab.label) + '</span>';
+            btn.innerHTML = this.renderTabInner(tab, active);
             btn.addEventListener('click', () => this.navigateTab(tab.id));
             tabBar.appendChild(btn);
         });
@@ -88,6 +88,15 @@ const shell = {
 
         // The initial route will be handled by the router's route event.
         this.updateActiveTab();
+    },
+
+    renderTabInner(tab, active) {
+        const iconKey = active && tab.activeIcon ? tab.activeIcon : tab.icon;
+        const iconSvg = this.icons[iconKey] || '';
+        const badge = (tab.id === 'notifications' && state.notificationCount > 0)
+            ? '<span class="notification-badge">' + state.notificationCount + '</span>'
+            : '';
+        return iconSvg + '<span>' + escapeHtml(tab.label) + badge + '</span>';
     },
 
     renderSidebarNav() {
@@ -103,7 +112,7 @@ const shell = {
                 className: 'sidebar-item' + (active ? ' active' : ''),
                 'data-tab': tab.id
             });
-            btn.innerHTML = this.icons[active ? tab.activeIcon : tab.icon] + '<span>' + escapeHtml(tab.label) + '</span>';
+            btn.innerHTML = this.renderTabInner(tab, active);
             btn.addEventListener('click', () => this.navigateTab(tab.id));
             nav.appendChild(btn);
         });
@@ -231,27 +240,32 @@ const shell = {
 
     updateActiveTab() {
         const active = this.getActiveTab();
-        const filledIcons = { home: 'homeFill', profile: 'profileFill', notifications: 'bellFill' };
+        const tabs = this.getTabs();
+        const tabMap = {};
+        tabs.forEach(tab => { tabMap[tab.id] = tab; });
 
         $$('.tab-item', this.root).forEach(btn => {
             const tabId = btn.getAttribute('data-tab');
+            const tab = tabMap[tabId];
+            if (!tab) return;
             const isActive = tabId === active;
             btn.classList.toggle('active', isActive);
-            const iconKey = isActive && filledIcons[tabId] ? filledIcons[tabId] : tabId;
-            const iconSvg = this.icons[iconKey] || '';
-            const label = btn.querySelector('span').textContent;
-            btn.innerHTML = iconSvg + '<span>' + escapeHtml(label) + '</span>';
+            btn.innerHTML = this.renderTabInner(tab, isActive);
         });
 
         $$('.sidebar-item', this.root).forEach(btn => {
             const tabId = btn.getAttribute('data-tab');
+            const tab = tabMap[tabId];
+            if (!tab) return;
             const isActive = tabId === active;
             btn.classList.toggle('active', isActive);
-            const iconKey = isActive && filledIcons[tabId] ? filledIcons[tabId] : tabId;
-            const iconSvg = this.icons[iconKey] || '';
-            const label = btn.querySelector('span').textContent;
-            btn.innerHTML = iconSvg + '<span>' + escapeHtml(label) + '</span>';
+            btn.innerHTML = this.renderTabInner(tab, isActive);
         });
+    },
+
+    updateNotificationBadge() {
+        this.updateActiveTab();
+        this.updateDesktopSidebars();
     },
 
     show() {
