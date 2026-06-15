@@ -108,11 +108,23 @@ const shell = {
             nav.appendChild(btn);
         });
         wrap.appendChild(nav);
+
+        const createBtn = createEl('button', { className: 'sidebar-create-btn' });
+        createBtn.innerHTML = shell.icons.create + '<span>New post</span>';
+        createBtn.addEventListener('click', () => router.navigate('/create'));
+        wrap.appendChild(createBtn);
+
         return wrap;
     },
 
     renderSidebarRight() {
         const wrap = createEl('div', { className: 'sidebar-right-content' });
+
+        const createBtn = createEl('button', { className: 'sidebar-create-btn' });
+        createBtn.innerHTML = shell.icons.create + '<span>New post</span>';
+        createBtn.addEventListener('click', () => router.navigate('/create'));
+        wrap.appendChild(createBtn);
+
         const title = createEl('h3', { text: 'Your account' });
         wrap.appendChild(title);
 
@@ -126,6 +138,13 @@ const shell = {
         userCard.appendChild(userInfo);
         userCard.addEventListener('click', () => router.navigate('/profile'));
         wrap.appendChild(userCard);
+
+        if (state.isAdmin) {
+            const adminLink = createEl('button', { className: 'sidebar-item', style: 'margin-top:8px;' });
+            adminLink.innerHTML = shell.icons.settings + '<span>Admin panel</span>';
+            adminLink.addEventListener('click', () => window.open('/admin', '_blank'));
+            wrap.appendChild(adminLink);
+        }
 
         const hint = createEl('p', { className: 'sidebar-hint', text: 'Tip: tap your profile to update your avatar.' });
         wrap.appendChild(hint);

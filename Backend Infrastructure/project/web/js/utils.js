@@ -101,14 +101,23 @@ function initials(name) {
     return String(name).substring(0, 2).toUpperCase();
 }
 
+function authenticatedMediaUrl(url) {
+    if (!url) return null;
+    if (typeof state !== 'undefined' && state && state.token) {
+        return url + (url.indexOf('?') >= 0 ? '&' : '?') + 'token=' + encodeURIComponent(state.token);
+    }
+    return url;
+}
+
 function avatarUrl(user) {
     if (!user) return null;
-    if (user.avatar_url && user.avatar_url.trim()) return user.avatar_url;
-    if (user.avatarUrl && user.avatarUrl.trim()) return user.avatarUrl;
-    if (user.avatar_filename && user.avatar_filename.trim()) {
-        return '/media/' + user.id + '/' + user.avatar_filename;
+    let url = null;
+    if (user.avatar_url && user.avatar_url.trim()) url = user.avatar_url;
+    else if (user.avatarUrl && user.avatarUrl.trim()) url = user.avatarUrl;
+    else if (user.avatar_filename && user.avatar_filename.trim()) {
+        url = '/media/' + user.id + '/' + user.avatar_filename;
     }
-    return null;
+    return authenticatedMediaUrl(url);
 }
 
 function renderAvatar(user, size, options) {
@@ -148,42 +157,46 @@ function usernameDisplay(user) {
 
 function postMediaUrl(post) {
     if (!post) return null;
-    if (post.media_url && post.media_url.trim()) return post.media_url;
-    if (post.mediaUrl && post.mediaUrl.trim()) return post.mediaUrl;
-    if (post.media_filename && post.media_filename.trim()) {
-        return '/media/' + post.user_id + '/' + post.media_filename;
+    let url = null;
+    if (post.media_url && post.media_url.trim()) url = post.media_url;
+    else if (post.mediaUrl && post.mediaUrl.trim()) url = post.mediaUrl;
+    else if (post.media_filename && post.media_filename.trim()) {
+        url = '/media/' + post.user_id + '/' + post.media_filename;
     }
-    return null;
+    return authenticatedMediaUrl(url);
 }
 
 function postThumbnailUrl(post) {
     if (!post) return null;
-    if (post.thumbnail_url && post.thumbnail_url.trim()) return post.thumbnail_url;
-    if (post.thumbnailUrl && post.thumbnailUrl.trim()) return post.thumbnailUrl;
-    if (post.thumbnail_filename && post.thumbnail_filename.trim()) {
-        return '/media/' + post.user_id + '/' + post.thumbnail_filename;
+    let url = null;
+    if (post.thumbnail_url && post.thumbnail_url.trim()) url = post.thumbnail_url;
+    else if (post.thumbnailUrl && post.thumbnailUrl.trim()) url = post.thumbnailUrl;
+    else if (post.thumbnail_filename && post.thumbnail_filename.trim()) {
+        url = '/media/' + post.user_id + '/' + post.thumbnail_filename;
     }
-    return postMediaUrl(post);
+    return authenticatedMediaUrl(url) || postMediaUrl(post);
 }
 
 function storyMediaUrl(story) {
     if (!story) return null;
-    if (story.media_url && story.media_url.trim()) return story.media_url;
-    if (story.mediaUrl && story.mediaUrl.trim()) return story.mediaUrl;
-    if (story.media_filename && story.media_filename.trim()) {
-        return '/media/' + story.user_id + '/' + story.media_filename;
+    let url = null;
+    if (story.media_url && story.media_url.trim()) url = story.media_url;
+    else if (story.mediaUrl && story.mediaUrl.trim()) url = story.mediaUrl;
+    else if (story.media_filename && story.media_filename.trim()) {
+        url = '/media/' + story.user_id + '/' + story.media_filename;
     }
-    return null;
+    return authenticatedMediaUrl(url);
 }
 
 function storyThumbnailUrl(story) {
     if (!story) return null;
-    if (story.thumbnail_url && story.thumbnail_url.trim()) return story.thumbnail_url;
-    if (story.thumbnailUrl && story.thumbnailUrl.trim()) return story.thumbnailUrl;
-    if (story.thumbnail_filename && story.thumbnail_filename.trim()) {
-        return '/media/' + story.user_id + '/' + story.thumbnail_filename;
+    let url = null;
+    if (story.thumbnail_url && story.thumbnail_url.trim()) url = story.thumbnail_url;
+    else if (story.thumbnailUrl && story.thumbnailUrl.trim()) url = story.thumbnailUrl;
+    else if (story.thumbnail_filename && story.thumbnail_filename.trim()) {
+        url = '/media/' + story.user_id + '/' + story.thumbnail_filename;
     }
-    return storyMediaUrl(story);
+    return authenticatedMediaUrl(url) || storyMediaUrl(story);
 }
 
 function isTextOnlyPost(post) {

@@ -18,13 +18,26 @@
     async function restoreSession() {
         state.isLoadingAuth = true;
         try {
-            const user = await fetchMe();
+            // First try the HttpOnly session cookie.
+            let user = null;
+            try { user = await fetchMe(); } catch (_) { user = null; }
             if (user && user.id) {
                 state.setAuthFromCookie(user);
-            } else {
-                state.clearAuth();
+                return;
             }
-        } catch (err) {
+
+            // Fallback to a persisted JWT for browsers/environments where the
+            // cookie isn't available (e.g. some desktop browsers, incognito).
+            const token = state.loadPersistedToken();
+            if (token) {
+                state.token = token;
+                try { user = await fetchMe(); } catch (_) { user = null; }
+                if (user && user.id) {
+                    state.setAuth({ token, user });
+                    return;
+                }
+            }
+
             state.clearAuth();
         } finally {
             state.isLoadingAuth = false;

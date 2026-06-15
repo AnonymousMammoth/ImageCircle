@@ -26,6 +26,7 @@ const state = {
         this.cookieAuth = false;
         this.authRequiredFired = false;
         this.requiresPasswordChange = !!(this.user && this.user.password_change_required);
+        this._persistToken();
     },
 
     setAuthFromCookie(user) {
@@ -41,9 +42,29 @@ const state = {
         this.user = null;
         this.cookieAuth = false;
         this.requiresPasswordChange = false;
+        try { localStorage.removeItem('circle_token'); } catch (_) {}
     },
 
     updateUser(user) {
         this.user = user || this.user;
+    },
+
+    loadPersistedToken() {
+        try {
+            const t = localStorage.getItem('circle_token');
+            return t || null;
+        } catch (_) {
+            return null;
+        }
+    },
+
+    _persistToken() {
+        try {
+            if (this.token) {
+                localStorage.setItem('circle_token', this.token);
+            } else {
+                localStorage.removeItem('circle_token');
+            }
+        } catch (_) {}
     }
 };

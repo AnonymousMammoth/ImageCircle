@@ -27,7 +27,10 @@ async function apiRequest(method, path, options) {
 
     if (response.status === 401) {
         state.clearAuth();
-        if (!state.authRequiredFired) {
+        // Don't fire the auth-required event while restoreSession is still trying
+        // a cookie or persisted token, otherwise a transient 401 during refresh
+        // immediately kicks the user to the login screen.
+        if (!state.isLoadingAuth && !state.authRequiredFired) {
             state.authRequiredFired = true;
             window.dispatchEvent(new CustomEvent('circle:authrequired'));
         }

@@ -46,6 +46,12 @@ func AuthRequired(secret []byte) gin.HandlerFunc {
 			}
 		}
 
+		// Fallback to a token query parameter for browser <img>/<video> tags in
+		// environments where the HttpOnly cookie cannot be sent.
+		if tokenString == "" {
+			tokenString = c.Query("token")
+		}
+
 		if tokenString == "" {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "authorization required"})
 			return
