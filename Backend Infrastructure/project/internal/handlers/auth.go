@@ -231,6 +231,21 @@ func (h *AuthHandler) ChangePassword(c *gin.Context) {
 	})
 }
 
+// SetupStatus returns whether the one-time initial admin setup is still available.
+// It responds 200 when no users exist (setup required) and 403 once setup is complete.
+func (h *AuthHandler) SetupStatus(c *gin.Context) {
+	var userCount int64
+	if err := h.DB.QueryRow(`SELECT COUNT(*) FROM users`).Scan(&userCount); err != nil {
+		utils.RespondError(c, http.StatusInternalServerError, "failed to check setup status")
+		return
+	}
+	if userCount > 0 {
+		utils.RespondError(c, http.StatusForbidden, "setup already complete")
+		return
+	}
+	utils.RespondJSON(c, http.StatusOK, gin.H{"setup_required": true})
+}
+
 // Setup performs one-time initial admin setup. It creates the first admin user
 // when no users exist and returns an auth token.
 func (h *AuthHandler) Setup(c *gin.Context) {

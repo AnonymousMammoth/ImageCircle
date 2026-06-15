@@ -7,22 +7,15 @@ const loginComponent = {
         clearEl(container);
         container.className = 'login-screen';
 
+        // The web UI is served from the same origin as the API, so default to it.
+        if (!state.serverURL) {
+            state.serverURL = window.location.origin;
+        }
+
         const logo = createEl('div', { className: 'login-logo', innerHTML: shell.icons.profileFill });
         const title = createEl('h1', { className: 'login-title', text: 'ImageCircle' });
 
         const form = createEl('form', { className: 'login-form', id: 'login-form' });
-
-        const serverGroup = createEl('div', { className: 'form-group' });
-        const serverLabel = createEl('label', { text: 'Server URL' });
-        const serverInput = createEl('input', {
-            type: 'text',
-            id: 'server-url',
-            placeholder: 'https://example.com (defaults to current)',
-            autocomplete: 'url',
-            value: state.serverURL || ''
-        });
-        serverGroup.appendChild(serverLabel);
-        serverGroup.appendChild(serverInput);
 
         const usernameGroup = createEl('div', { className: 'form-group' });
         const usernameLabel = createEl('label', { text: 'Username' });
@@ -55,7 +48,6 @@ const loginComponent = {
         });
         submitBtn.textContent = 'Log In';
 
-        form.appendChild(serverGroup);
         form.appendChild(usernameGroup);
         form.appendChild(passwordGroup);
         form.appendChild(errorEl);
@@ -63,7 +55,7 @@ const loginComponent = {
 
         form.addEventListener('submit', (e) => {
             e.preventDefault();
-            this.handleLogin(serverInput.value.trim(), usernameInput.value.trim(), passwordInput.value, errorEl, submitBtn);
+            this.handleLogin(usernameInput.value.trim(), passwordInput.value, errorEl, submitBtn);
         });
 
         container.appendChild(logo);
@@ -76,8 +68,8 @@ const loginComponent = {
 
     async checkSetupHint(container) {
         try {
-            const response = await fetch('/api/admin/setup', { method: 'HEAD', credentials: 'same-origin' });
-            if (response.status !== 200 && response.status !== 204) return; // setup already complete or error
+            const response = await fetch('/api/admin/setup', { method: 'GET', credentials: 'same-origin' });
+            if (response.status !== 200) return; // setup already complete or error
             const hint = createEl('p', {
                 style: 'font-size:13px;color:var(--text-secondary);margin-top:24px;text-align:center;'
             });
@@ -88,13 +80,12 @@ const loginComponent = {
         }
     },
 
-    async handleLogin(server, username, password, errorEl, submitBtn) {
+    async handleLogin(username, password, errorEl, submitBtn) {
         setText(errorEl, '');
         submitBtn.disabled = true;
         submitBtn.innerHTML = '<span class="spinner"></span>';
 
         try {
-            state.serverURL = server;
             const data = await login(username, password);
             if (!data || !data.token || !data.user) {
                 throw new Error('Invalid response from server');

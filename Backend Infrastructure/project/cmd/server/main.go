@@ -169,6 +169,7 @@ func main() {
 	})
 
 	// Public (no auth)
+	router.GET("/api/admin/setup", authHandler.SetupStatus)
 	router.POST("/api/admin/setup", strictRateLimiter.Middleware(), authHandler.Setup)
 	router.POST("/api/auth/login", strictRateLimiter.Middleware(), authHandler.Login)
 
