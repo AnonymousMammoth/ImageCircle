@@ -1,6 +1,6 @@
 /**
  * Full-screen story viewer with progress bars, tap navigation, long-press pause,
- * swipe down to close, auto-advance, video playback, and delete own story.
+ * swipe down to close, auto-advance, video playback, and delete story.
  */
 
 const storyViewerComponent = {
@@ -15,6 +15,7 @@ const storyViewerComponent = {
     isDragging: false,
     startY: 0,
     currentMedia: null,
+    isDeleting: false,
 
     open(groups, groupIndex) {
         if (!groups || !groups.length) return;
@@ -23,6 +24,7 @@ const storyViewerComponent = {
         this.storyIndex = 0;
         this.progress = 0;
         this.viewedIds = new Set();
+        this.isDeleting = false;
         this.render();
         this.setupStory();
     },
@@ -51,16 +53,19 @@ const storyViewerComponent = {
         }
         topBar.appendChild(userInfo);
 
-        const right = createEl('div', { style: 'display:flex;gap:8px;' });
+        const right = createEl('div', { className: 'story-top-bar-right' });
         const closeBtn = createEl('button', { className: 'story-close-btn' });
         closeBtn.innerHTML = shell.icons.close;
         closeBtn.addEventListener('click', () => this.close());
         right.appendChild(closeBtn);
 
-        if (current && isOwnContent(current.user.id, state.user)) {
+        if (current && canManageContent(current.user.id, state.user)) {
             const menuBtn = createEl('button', { className: 'story-menu-btn' });
             menuBtn.innerHTML = shell.icons.menu;
-            menuBtn.addEventListener('click', () => this.deleteCurrent());
+            menuBtn.addEventListener('click', (e) => {
+                stopEvent(e);
+                this.deleteCurrent();
+            });
             right.appendChild(menuBtn);
         }
         topBar.appendChild(right);
@@ -84,6 +89,7 @@ const storyViewerComponent = {
         };
 
         const addTouch = (el, action) => {
+            let isPointerDown = false;
             el.addEventListener('touchstart', (e) => {
                 this.isDragging = false;
                 this.startY = e.touches[0].clientY;
@@ -114,13 +120,56 @@ const storyViewerComponent = {
                     this.isDragging = false;
                     this.dragOffset = 0;
                 } else {
-                    // Normal tap
                     action();
                 }
             });
-            el.addEventListener('mousedown', startLongPress);
-            el.addEventListener('mouseup', () => { endLongPress(); action(); });
-            el.addEventListener('mouseleave', endLongPress);
+
+            // Mouse/pointer support for desktop
+            el.addEventListener('pointerdown', (e) => {
+                isPointerDown = true;
+                this.isDragging = false;
+                this.startY = e.clientY;
+                startLongPress();
+            });
+            el.addEventListener('pointermove', (e) => {
+                if (!isPointerDown) return;
+                const diff = e.clientY - this.startY;
+                if (diff > 10) {
+                    if (longPressTimer) clearTimeout(longPressTimer);
+                    this.isPaused = true;
+                    this.updatePause();
+                    this.isDragging = true;
+                    this.dragOffset = diff;
+                    overlay.style.transform = 'translateY(' + diff + 'px)';
+                    overlay.style.opacity = String(1 - Math.min(diff / 400, 1));
+                }
+            });
+            el.addEventListener('pointerup', (e) => {
+                if (!isPointerDown) return;
+                isPointerDown = false;
+                endLongPress();
+                if (this.isDragging) {
+                    if (this.dragOffset > 120) {
+                        this.close();
+                    } else {
+                        overlay.style.transform = 'translateY(0)';
+                        overlay.style.opacity = '1';
+                    }
+                    this.isDragging = false;
+                    this.dragOffset = 0;
+                } else {
+                    action();
+                }
+            });
+            el.addEventListener('pointerleave', () => {
+                if (!isPointerDown) return;
+                isPointerDown = false;
+                endLongPress();
+                overlay.style.transform = 'translateY(0)';
+                overlay.style.opacity = '1';
+                this.isDragging = false;
+                this.dragOffset = 0;
+            });
         };
 
         addTouch(leftZone, () => this.previous());
@@ -158,7 +207,6 @@ const storyViewerComponent = {
 
         if (story.media_type === 'video' || story.mediaType === 'video') {
             this.progress = 0;
-            // video handles itself via events
         } else {
             this.progress = 0;
             this.startImageTimer();
@@ -176,13 +224,12 @@ const storyViewerComponent = {
         }
         const menuBtn = document.querySelector('.story-top-bar .story-menu-btn');
         if (menuBtn) {
-            menuBtn.style.display = isOwnContent(story.user.id, state.user) ? 'flex' : 'none';
+            menuBtn.style.display = canManageContent(story.user.id, state.user) ? 'flex' : 'none';
         }
     },
 
     renderStoryMedia() {
         const content = document.getElementById('story-content');
-        // Remove old media but keep controls/progress
         const old = content.querySelector('#story-media');
         if (old) old.remove();
 
@@ -205,9 +252,7 @@ const storyViewerComponent = {
                 style: 'max-width:100%;max-height:100%;object-fit:contain;'
             });
             video.addEventListener('ended', () => this.next());
-            video.addEventListener('loadedmetadata', () => {
-                // For very short videos
-            });
+            video.addEventListener('loadedmetadata', () => {});
             video.addEventListener('error', () => {
                 mediaWrap.innerHTML = '<p style="color:white">Could not load video</p>';
             });
@@ -315,9 +360,16 @@ const storyViewerComponent = {
     },
 
     async deleteCurrent() {
+        if (this.isDeleting) return;
         const story = this.currentStory();
         if (!story) return;
+        if (!canManageContent(story.user.id, state.user)) return;
         if (!confirmAction('Delete this story? This cannot be undone.')) return;
+
+        this.isDeleting = true;
+        const menuBtn = document.querySelector('.story-top-bar .story-menu-btn');
+        if (menuBtn) menuBtn.disabled = true;
+
         try {
             await deleteStory(story.id);
             this.groups[this.groupIndex].stories.splice(this.storyIndex, 1);
@@ -335,6 +387,9 @@ const storyViewerComponent = {
             this.setupStory();
         } catch (err) {
             showAlert(err.message);
+        } finally {
+            this.isDeleting = false;
+            if (menuBtn) menuBtn.disabled = false;
         }
     },
 
@@ -343,5 +398,6 @@ const storyViewerComponent = {
         const overlay = document.getElementById('story-viewer-overlay');
         if (overlay) overlay.remove();
         this.currentMedia = null;
+        this.isDeleting = false;
     }
 };

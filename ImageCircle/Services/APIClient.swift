@@ -85,11 +85,15 @@ final class APIClient {
         let config = URLSessionConfiguration.default
         config.timeoutIntervalForRequest = 30
         config.timeoutIntervalForResource = 60
+        config.httpCookieStorage = HTTPCookieStorage.shared
+        config.httpShouldSetCookies = true
         self.session = URLSession(configuration: config)
         
         let uploadConfig = URLSessionConfiguration.default
         uploadConfig.timeoutIntervalForRequest = 120
         uploadConfig.timeoutIntervalForResource = 300
+        uploadConfig.httpCookieStorage = HTTPCookieStorage.shared
+        uploadConfig.httpShouldSetCookies = true
         let delegateQueue = OperationQueue()
         delegateQueue.maxConcurrentOperationCount = 1
         self.uploadSession = URLSession(configuration: uploadConfig, delegate: uploadDelegate, delegateQueue: delegateQueue)
@@ -254,6 +258,10 @@ final class APIClient {
         let users: [User]
     }
     
+    private struct NotificationsResponse: Codable {
+        let notifications: [AppNotification]
+    }
+    
     private struct LikeResponse: Codable {
         let liked: Bool
         let likeCount: Int
@@ -352,6 +360,12 @@ final class APIClient {
         return response.posts
     }
     
+    func fetchPost(id: Int) async throws -> Post {
+        let url = try apiURL(path: "posts/\(id)")
+        let req = request(for: url)
+        return try await perform(req)
+    }
+    
     func toggleLike(id: Int) async throws -> (liked: Bool, likeCount: Int) {
         let url = try apiURL(path: "posts/\(id)/like")
         let req = request(for: url, method: "POST")
@@ -409,6 +423,13 @@ final class APIClient {
         let req = request(for: url)
         let response: UsersResponse = try await perform(req)
         return response.users
+    }
+    
+    func fetchNotifications() async throws -> [AppNotification] {
+        let url = try apiURL(path: "notifications")
+        let req = request(for: url)
+        let response: NotificationsResponse = try await perform(req)
+        return response.notifications
     }
     
     // MARK: - Admin

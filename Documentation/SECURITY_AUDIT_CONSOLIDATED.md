@@ -1,23 +1,23 @@
 # Circle / ImageCircle Consolidated Security Audit
 
 **Date:** 2026-06-14  
-**Scope:** Go backend (`Backend Infrastructure/project/`), iOS client (`ImageCircle/`), Docker/nginx deployment  
+**Scope:** Go backend (`Backend Infrastructure/project/`), iOS client (`ImageCircle/`), web app (`Backend Infrastructure/project/web/`), Docker/nginx deployment  
 **Status:** Issues from the pre-fix audit have been resolved. Remaining findings are tracked below with current severity.
 
 ---
 
 ## Summary
 
-This audit consolidates findings across the backend API and the iOS client. A recent code pass resolved the most critical client/server contract gaps and the first-admin bootstrap problem. The remaining open items are design decisions or deployment-hardening items rather than immediate vulnerabilities.
+This audit consolidates findings across the backend API, iOS client, and web app. Recent code passes resolved the most critical client/server contract gaps, the first-admin bootstrap problem, and unauthenticated media access. The remaining open items are design decisions or deployment-hardening items rather than immediate vulnerabilities.
 
 | Category | Resolved | Open |
 |----------|:--------:|:----:|
 | Authentication & authorization | 3 | 0 |
 | Client/server contract | 4 | 0 |
 | Network / transport | 0 | 3 |
-| Media privacy | 0 | 2 |
+| Media privacy | 1 | 1 |
 | Deployment / operational | 0 | 4 |
-| **Total** | **7** | **9** |
+| **Total** | **8** | **8** |
 
 ---
 
@@ -49,6 +49,9 @@ The following issues were present in the pre-fix state and are now resolved in c
 8. **Change-password response mismatch**  
    Backend now returns `200 { token, success: true, expires_at }`; iOS `ChangePasswordResponse` decodes `{ token, success }` and `AuthManager` saves the new token. The backend also invalidates all other sessions for the user on password change.
 
+9. **Media URLs were unauthenticated**  
+   `GET /media/*` is now served by the authenticated `MediaHandler.Serve`. nginx proxies `/media/` to the Go backend, which validates the session (Bearer header or `circle_session` cookie), sanitizes the path, and streams the file. Cookie-based sessions were added to support browser-initiated media requests.
+
 ---
 
 ## Open Findings
@@ -60,56 +63,49 @@ The following issues were present in the pre-fix state and are now resolved in c
 - **Mitigation today:** Intended for private networks / Tailscale / VPNs where the network path is trusted.  
 - **Recommendation:** Pin the server's certificate or public key if the app will be used over untrusted networks.
 
-### 2. Media URLs are unauthenticated
-
-- **Severity:** Medium  
-- **Finding:** Anyone who obtains a `/media/{user_id}/{filename}` URL can view the file without presenting a session token. Filenames are UUID-based and unguessable, but URLs are not access-controlled per user.  
-- **Mitigation today:** Unguessable filenames; intended for private networks.  
-- **Recommendation:** Accept the risk for the target deployment model, or serve media through an authenticated endpoint if stricter access control is required.
-
-### 3. Server URL stored in `UserDefaults`
+### 2. Server URL stored in `UserDefaults`
 
 - **Severity:** Low  
 - **Finding:** `APIClient.baseURLString` reads and writes `server_url` from `UserDefaults`. This is not encrypted and could be read by a device backup or sandbox escape. The JWT token is correctly stored in the Keychain.  
 - **Mitigation today:** Server URL is not sensitive in the threat model.  
 - **Recommendation:** Move the server URL to the Keychain if device backups are a concern.
 
-### 4. CORS requires exact-origin match
+### 3. CORS requires exact-origin match
 
 - **Severity:** Low  
 - **Finding:** `CIRCLE_ALLOWED_ORIGIN` must match the iOS `server_url` exactly. A typo or scheme mismatch (http vs https, trailing slash, different port) will cause preflight failures.  
 - **Mitigation today:** Single-origin CORS is correct; wildcard origins are not allowed.  
 - **Recommendation:** Document the exact origin format during deployment and verify it in setup tooling.
 
-### 5. No server-side media processing
+### 4. No server-side media processing
 
 - **Severity:** Low  
 - **Finding:** The server validates file type and EXIF GPS data but does not re-encode, resize, or strip metadata from images/videos. Malformed or oversized files could be stored if client-side compression is bypassed.  
-- **Mitigation today:** Client compresses media; server enforces `CIRCLE_MAX_MEDIA_SIZE` and magic-byte validation.  
+- **Mitigation today:** Client compresses media; server enforces `CIRCLE_MAX_MEDIA_SIZE` and magic-byte validation; media access now requires authentication.  
 - **Recommendation:** Add server-side re-encoding for defense in depth if the threat model includes malicious or non-iOS clients.
 
-### 6. SQLite and in-memory rate limiter prevent horizontal scaling
+### 5. SQLite and in-memory rate limiter prevent horizontal scaling
 
 - **Severity:** Low (by design)  
 - **Finding:** The architecture assumes a single backend instance. SQLite file locking and the in-memory token-bucket rate limiter cannot scale across multiple containers.  
 - **Mitigation today:** Deployment target is small private groups (5–50 users).  
 - **Recommendation:** Accept as a design constraint; do not attempt horizontal scaling without replacing SQLite and the rate limiter.
 
-### 7. Admin panel served from the same origin and port
+### 6. Admin panel served from the same origin and port
 
 - **Severity:** Low  
-- **Finding:** The admin SPA is served at `/admin` on the same bind address as the public API. There is no separate network segmentation for admin traffic.  
+- **Finding:** The admin SPA is served at `/admin` on the same bind address as the public API and web app. There is no separate network segmentation for admin traffic.  
 - **Mitigation today:** Admin access requires a valid admin JWT; panel should be reached via VPN/SSH tunnel/Tailscale only.  
 - **Recommendation:** Restrict access at the network layer in production.
 
-### 8. No SMTP / self-service password reset
+### 7. No SMTP / self-service password reset
 
 - **Severity:** Low (by design)  
 - **Finding:** Users cannot reset their own passwords via email. An admin must generate a new temporary password.  
 - **Mitigation today:** Avoids external email dependencies and account-recovery abuse.  
 - **Recommendation:** Accept as a privacy/design choice; document the admin reset procedure.
 
-### 9. JWT signed with HS256 only
+### 8. JWT signed with HS256 only
 
 - **Severity:** Low  
 - **Finding:** The backend uses `HS256`. Algorithm-confusion attacks are blocked by the `jwt.SigningMethodHMAC` type check, but key rotation and asymmetric signing are not supported.  
@@ -124,8 +120,9 @@ The following issues were present in the pre-fix state and are now resolved in c
 |---------|--------|-------|
 | JWT HS256 signing | PASS | Algorithm confusion blocked by `SigningMethodHMAC` check |
 | JWT expiry + session whitelist | PASS | 30-day expiry; middleware rejects tokens missing from `sessions` |
-| Token revocation | PASS | Logout deletes session row |
+| Token revocation | PASS | Logout deletes session row and clears cookie |
 | Bearer token parsing | PASS | Format-validated `Authorization: Bearer <token>` |
+| Cookie-based session | PASS | `circle_session` cookie, `SameSite=Strict`, `HttpOnly`; cleared on logout |
 | Password hashing | PASS | bcrypt, default cost 12 |
 | Password strength | PASS | Min 8 chars, upper/lower/digit |
 | Temporary passwords | PASS | 12 chars, crypto-random, mixed character classes |
@@ -136,7 +133,8 @@ The following issues were present in the pre-fix state and are now resolved in c
 | No PII in logs | PASS | Method, path, status, duration only |
 | IP hashing for rate limit | PASS | SHA256 keys; raw IPs not stored long-term |
 | EXIF GPS rejection | PASS | Server rejects uploads containing GPS data |
-| Password hash exclusion | PASS | `json:"-"` + manual clearing before responses |
+| Password hash exclusion | PASS | `json:"-"` + manual clearing before responses; omitted from feed/comment/story queries |
+| Authenticated media access | PASS | `GET /media/*` requires valid session; path traversal blocked |
 | CORS single origin | PASS | Configurable exact origin, credentials enabled |
 | Security headers | PASS | HSTS, CSP, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy |
 | Rate limiting | PASS | Token bucket, 100 req/min default, `429` + `Retry-After` |
@@ -144,7 +142,7 @@ The following issues were present in the pre-fix state and are now resolved in c
 | XSS prevention (admin panel) | PASS | `escapeHtml()` before DOM insertion |
 | File type validation | PASS | Magic-byte detection for JPEG, PNG, MP4, MOV, HEIC |
 | File size limits | PASS | `CIRCLE_MAX_MEDIA_SIZE`, default 50 MB |
-| Path traversal prevention | PASS | `filepath.Clean` + prefix validation in admin static handler |
+| Path traversal prevention | PASS | `filepath.Clean` + prefix validation in admin static handler and media handler |
 | Atomic media save | PASS | `os.O_EXCL` prevents overwrite races |
 | Media cleanup | PASS | DB row deleted first, filesystem cleanup follows |
 | Orphaned-file cleanup | PASS | Hourly job removes unreferenced media |
@@ -166,6 +164,7 @@ The following issues were present in the pre-fix state and are now resolved in c
 | Client-side metadata stripping | PASS | `MediaPreviewView.compressPhoto` re-encodes JPEG; `compressVideo` re-exports MP4 |
 | No sign-up screen | PASS | No public registration flow |
 | API path alignment | PASS | All `APIClient` paths match backend routes after recent fix |
+| Cookie storage for media auth | PASS | `URLSession` uses `HTTPCookieStorage.shared` so `circle_session` is sent with media requests |
 
 ---
 
@@ -178,6 +177,7 @@ Before exposing Circle to real users:
   openssl rand -base64 64
   ```
 - [ ] **HTTPS / TLS configured.** Use Tailscale, Cloudflare Tunnel, or a reverse proxy with Let’s Encrypt. Do not expose plain HTTP.
+- [ ] **Cookie Secure flag.** Set `CIRCLE_COOKIE_SECURE=true` in production **only when HTTPS is enabled**.
 - [ ] **Admin panel access restricted.** Reach it via SSH tunnel, Tailscale, or VPN only.
 - [ ] **Firewall rules set.** Only necessary ports open.
 - [ ] **Regular backups configured.** Automate backup of `/data` (SQLite DB + media).
@@ -193,7 +193,7 @@ Before exposing Circle to real users:
 ## Threat Model Notes
 
 - Circle is designed for **private networks, VPNs, or Tailscale meshes**, not public internet exposure.
-- Media privacy relies on unguessable URLs and network perimeter security rather than per-user access control.
+- Media privacy relies on session-based access control in addition to unguessable URLs and network perimeter security.
 - Single-instance SQLite and in-memory rate limiting are intentional constraints for small private deployments.
 - There is no SMTP server; password resets require admin action.
 

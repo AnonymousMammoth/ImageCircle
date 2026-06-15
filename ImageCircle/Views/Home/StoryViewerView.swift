@@ -59,6 +59,20 @@ struct StoryViewerView: View {
                 .offset(y: dragOffset.height)
             
             overlayControls
+            
+            if isDeleting {
+                Color.black.opacity(0.5)
+                    .ignoresSafeArea()
+                    .overlay(
+                        VStack(spacing: 12) {
+                            ProgressView()
+                                .scaleEffect(1.5)
+                                .tint(.white)
+                            Text("Deleting...")
+                                .foregroundStyle(.white)
+                        }
+                    )
+            }
         }
         .gesture(dragGesture)
         .onAppear {
@@ -185,29 +199,33 @@ struct StoryViewerView: View {
                     .padding(.top, geo.safeAreaInsets.top + 8)
                     .padding(.horizontal, 12)
                 
+                bottomInfo
+                    .padding(.bottom, geo.safeAreaInsets.bottom + 24)
+                
+                tapZones(width: geo.size.width, safeAreaTop: geo.safeAreaInsets.top)
+                
                 topBar
                     .padding(.top, geo.safeAreaInsets.top + 16)
                     .padding(.horizontal, 12)
-                
-                VStack {
-                    Spacer()
-                    HStack(spacing: 10) {
-                        if let user = currentGroup?.user {
-                            avatarView(for: user)
-                                .frame(width: 36, height: 36)
-                            Text(user.username)
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(.white)
-                                .shadow(radius: 4)
-                        }
-                        Spacer()
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, geo.safeAreaInsets.bottom + 24)
-                }
-                
-                tapZones(width: geo.size.width)
             }
+        }
+    }
+    
+    private var bottomInfo: some View {
+        VStack {
+            Spacer()
+            HStack(spacing: 10) {
+                if let user = currentGroup?.user {
+                    avatarView(for: user)
+                        .frame(width: 36, height: 36)
+                    Text(user.username)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.white)
+                        .shadow(radius: 4)
+                }
+                Spacer()
+            }
+            .padding(.horizontal, 16)
         }
     }
     
@@ -222,10 +240,11 @@ struct StoryViewerView: View {
                     .clipShape(Circle())
             }
             .accessibilityLabel("Close stories")
+            .allowsHitTesting(true)
             
             Spacer()
             
-            if let story = currentStory, isCurrentUser(story.user.id) {
+            if let story = currentStory, AuthManager.shared.canDelete(contentUserID: story.user.id) {
                 Menu {
                     Button(role: .destructive) {
                         showDeleteConfirmation = true
@@ -241,16 +260,18 @@ struct StoryViewerView: View {
                         .background(Color.black.opacity(0.4))
                         .clipShape(Circle())
                 }
+                .allowsHitTesting(true)
             }
         }
+        .allowsHitTesting(false)
     }
     
-    private func tapZones(width: CGFloat) -> some View {
+    private func tapZones(width: CGFloat, safeAreaTop: CGFloat) -> some View {
         HStack(spacing: 0) {
             tapZone(width: width * 0.33, action: { previousStory() }, label: "Previous story")
             tapZone(width: width * 0.67, action: { nextStory() }, label: "Next story")
         }
-        .padding(.top, 100)
+        .padding(.top, safeAreaTop + 80)
         .frame(maxHeight: .infinity)
     }
     
@@ -496,9 +517,6 @@ struct StoryViewerView: View {
         ImagePrefetcher(urls: urls).start()
     }
     
-    private func isCurrentUser(_ userID: Int) -> Bool {
-        AuthManager.shared.currentUser?.id == userID
-    }
 }
 
 // MARK: - Safe Index

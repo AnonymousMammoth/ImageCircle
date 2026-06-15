@@ -58,6 +58,9 @@ struct SearchView: View {
                     ProfileView(user: user)
                 }
             }
+            .onDisappear {
+                searchTask.cancel()
+            }
         }
     }
     
@@ -95,5 +98,10 @@ final class DebounceTask: ObservableObject {
                 // Cancelled
             }
         }
+    }
+    
+    func cancel() {
+        task?.cancel()
+        task = nil
     }
 }

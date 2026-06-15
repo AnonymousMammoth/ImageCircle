@@ -29,8 +29,8 @@ struct PostCardView: View {
         self.onDelete = onDelete
     }
     
-    private var isOwner: Bool {
-        AuthManager.shared.currentUser?.id == postState.user.id
+    private var canDelete: Bool {
+        AuthManager.shared.canDelete(contentUserID: postState.user.id)
     }
     
     var body: some View {
@@ -71,7 +71,7 @@ struct PostCardView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
             
-            if isOwner {
+            if canDelete {
                 Menu {
                     Button(role: .destructive) {
                         showDeleteConfirmation = true
@@ -258,7 +258,7 @@ struct PostCardView: View {
     }
     
     private func deletePost() {
-        guard isOwner else { return }
+        guard canDelete else { return }
         isDeleting = true
         Task {
             do {

@@ -40,7 +40,7 @@ const postCardComponent = {
         header.appendChild(meta);
         header.appendChild(time);
 
-        if (isOwnContent(post.user.id, state.user)) {
+        if (canManageContent(post.user.id, state.user)) {
             const menuBtn = createEl('button', { className: 'menu-btn' });
             menuBtn.innerHTML = shell.icons.menu;
             menuBtn.addEventListener('click', () => this.deletePost(post));

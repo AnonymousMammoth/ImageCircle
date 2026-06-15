@@ -23,23 +23,33 @@ const (
 )
 
 // AuthRequired returns a middleware that validates the JWT Bearer token.
-// It sets user_id, username, and is_admin in the gin context.
+// It first checks the Authorization header, then falls back to a cookie named
+// "circle_session" so that <img> tags and other browser-initiated requests can
+// be authenticated. It sets user_id, username, and is_admin in the gin context.
 // If the token is missing, invalid, expired, or blacklisted, it returns 401.
 func AuthRequired(secret []byte) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		tokenString := ""
+
 		authHeader := c.GetHeader("Authorization")
-		if authHeader == "" {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "authorization header required"})
-			return
+		if authHeader != "" {
+			parts := strings.SplitN(authHeader, " ", 2)
+			if len(parts) == 2 && strings.EqualFold(parts[0], "Bearer") {
+				tokenString = parts[1]
+			}
 		}
 
-		parts := strings.SplitN(authHeader, " ", 2)
-		if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid authorization header format"})
-			return
+		if tokenString == "" {
+			cookie, err := c.Cookie("circle_session")
+			if err == nil && cookie != "" {
+				tokenString = cookie
+			}
 		}
 
-		tokenString := parts[1]
+		if tokenString == "" {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "authorization required"})
+			return
+		}
 
 		// Check token blacklist if a checker has been configured
 		if TokenBlacklistChecker != nil {

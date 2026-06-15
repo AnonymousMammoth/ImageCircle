@@ -35,8 +35,9 @@ Middleware is applied in this exact order in `main.go`:
 2. `middleware.SecurityHeaders(cfg.AllowedOrigin)` — HSTS, CSP, X-Frame-Options, etc.
 3. `middleware.Logger()` — zero-PII request logging.
 4. `middleware.NewRateLimiter(cfg.RateLimit).Middleware()` — token bucket rate limiting.
-5. `middleware.CORS(cfg.AllowedOrigin)` — single-origin CORS.
-6. `middleware.AuthRequired(cfg.JWTSecret)` — applied only to routes inside the `auth` group.
+5. `middleware.NoStoreCacheControl()` — `Cache-Control: no-store` for API/auth responses.
+6. `middleware.CORS(cfg.AllowedOrigin)` — single-origin CORS.
+7. `middleware.AuthRequired(cfg.JWTSecret)` — applied only to routes inside the `auth` group.
 
 `middleware.AdminRequired()` is applied per-route inside the auth group for admin-only endpoints.
 
@@ -44,13 +45,14 @@ Middleware is applied in this exact order in `main.go`:
 
 | Handler | File | Endpoints | Notes |
 |---------|------|-----------|-------|
-| `AuthHandler` | `internal/handlers/auth.go` | `/api/admin/setup`, `/api/auth/login`, `/api/auth/refresh`, `/api/auth/change-password`, `/api/auth/logout` | `setup` creates the first admin when no users exist. Login creates a JWT + session row. Logout deletes the session row. Change password validates strength, clears `password_change_required`, invalidates all other sessions, and returns a fresh token. |
+| `AuthHandler` | `internal/handlers/auth.go` | `/api/admin/setup`, `/api/auth/login`, `/api/auth/refresh`, `/api/auth/change-password`, `/api/auth/logout` | `setup` creates the first admin when no users exist. Login creates a JWT + session row **and sets the `circle_session` cookie**. Logout clears the cookie and deletes the session row. `refresh` and `change-password` also set a fresh cookie. Change password validates strength, clears `password_change_required`, invalidates all other sessions, and returns a fresh token. |
 | `UserHandler` | `internal/handlers/users.go` | `/api/users/me`, `/api/users/search`, `/api/users`, `/api/users/:id/*`, `/api/users/stats` | Search by username/display name. Create/delete/toggle-admin are admin-only. Delete cascades user content. |
 | `PostHandler` | `internal/handlers/posts.go` | `/api/posts`, `/api/posts/:id` | Accepts JSON `{ caption }` for text-only posts or multipart with `media` (and optional `thumbnail`). Validates EXIF GPS. Cleans up files on failure/deletion. |
 | `StoryHandler` | `internal/handlers/stories.go` | `/api/stories`, `/api/stories/:id`, `/api/stories/:id/view` | Requires `media_type` and `media`. 24-hour expiry on creation. |
 | `LikeHandler` | `internal/handlers/likes.go` | `/api/posts/:id/like` | Toggle like in a transaction. Returns `liked` + `like_count`. |
 | `CommentHandler` | `internal/handlers/comments.go` | `/api/posts/:id/comments`, `/api/comments/:id` | Comments limited to 1000 characters. |
-| `MediaHandler` | `internal/handlers/media.go` | `/api/media` | Generic media upload returning `filename` + `url`. |
+| `NotificationHandler` | `internal/handlers/notifications.go` | `/api/notifications` | Returns likes and comments on the current user's posts, paginated. |
+| `MediaHandler` | `internal/handlers/media.go` | `/api/media`, `/media/*filepath` | Generic media upload; authenticated media serving with path sanitization. |
 
 Shared helpers:
 
@@ -69,13 +71,14 @@ All SQL/DAO code lives in `internal/models/`:
 | `comment.go` | Comment CRUD per post. |
 | `like.go` | Toggle like transaction, like count, has-liked check. |
 | `session.go` | Session create/delete/expiry/blacklist check. |
+| `notification.go` | Notification queries for likes/comments on a user's posts. |
 | `invite_code.go` | Invite code schema helpers (secondary to admin-only creation). |
 
 Rules of thumb:
 
 - All queries use `?` placeholders.
 - `User` rows are scanned with the same column order everywhere.
-- `PasswordHash` is tagged `json:"-"` and manually cleared before JSON responses.
+- `PasswordHash` is tagged `json:"-"` and manually cleared before JSON responses; it is also omitted from feed, comment, and story queries.
 
 ## Media Storage
 
@@ -97,6 +100,8 @@ The `MediaStore` (`internal/storage/media.go`) handles:
 - EXIF GPS validation for JPEG/PNG (rejects if GPS data found).
 - File deletion and full-path resolution.
 
+Media is served by the authenticated `MediaHandler.Serve` route (`GET /media/*filepath`). It validates the session, resolves and cleans the path, ensures it stays inside `MediaDir`, and sets `Cache-Control: private`. Direct filesystem serving is no longer used, even behind nginx.
+
 Allowed MIME types:
 
 | MIME type | Extension |
@@ -106,6 +111,17 @@ Allowed MIME types:
 | `video/mp4` | `.mp4` |
 | `video/quicktime` | `.mov` |
 | `image/heic` | `.heic` |
+
+## Web App
+
+`Backend Infrastructure/project/web/` contains a vanilla JS SPA in addition to the admin panel:
+
+- `index.html` is served at `/`.
+- `admin.html` and related assets are served at `/admin`.
+- Components include feed, stories, camera, notifications, search, profile, settings, and the user admin panel.
+- `router.js` is a hash-based SPA router with debouncing and mount tokens to avoid freezing on fast navigation.
+- `api.js` stores the JWT in memory and relies on the `circle_session` cookie for media requests.
+- The camera component uses `MediaRecorder` for hold-to-record video and tap-to-photo behavior matching the iOS app.
 
 ## Background Jobs
 
@@ -128,6 +144,7 @@ The job is started in `main.go` and stopped during graceful shutdown.
 | `CIRCLE_MAX_MEDIA_SIZE` | `52428800` (50 MB) | Maximum upload size in bytes. |
 | `CIRCLE_RATE_LIMIT` | `100` | Requests per minute per hashed IP. |
 | `CIRCLE_PASSWORD_COST` | `12` | bcrypt cost factor. |
+| `CIRCLE_COOKIE_SECURE` | `false` | Set to `true` in production to mark the `circle_session` cookie `Secure`. Only enable behind HTTPS. |
 | `CIRCLE_ADMIN_BIND` | `127.0.0.1` | Loaded but **currently unused** in `main.go`. The admin panel is served on the same bind address as the main server (`ServerBind`, which is empty/`0.0.0.0`). |
 
 ## Docker / nginx Wiring
@@ -141,13 +158,13 @@ The reference deployment uses two containers defined in `docker-compose.yml`:
 
 | Location | Destination | Notes |
 |----------|-------------|-------|
-| `/media/` | Filesystem `/data/media/` | Direct serving with `expires 1y` and `Cache-Control: private, immutable`. |
+| `/media/` | `http://circle-app:8080` | Proxied to Go for authentication; `circle_session` cookie passed for browser requests. |
 | `/api/` | `http://circle-app:8080` | Proxy with 60s timeouts and `client_max_body_size 50M`. |
 | `/admin` and `/admin/*` | `http://circle-app:8080` | Admin panel SPA. |
-| `~ /\.` and `~* \.(db\|sqlite\|sqlite3\|env)$` | `deny all` | Hidden and sensitive files blocked. |
-| `/` | `return 404` | Everything else denied. |
+| `/` | `http://circle-app:8080` | Web app SPA shell (`index.html`). |
+| `~ /\. ` and `~* \.(db\|sqlite\|sqlite3\|env)$` | `deny all` | Hidden and sensitive files blocked. |
 
-The Go backend itself also mounts `router.Static("/media", cfg.MediaDir)` so media still works when running locally without nginx.
+The Go backend serves `/media/*` through the authenticated `MediaHandler.Serve` route. There is no `router.Static("/media", ...)` mount.
 
 ## Database
 

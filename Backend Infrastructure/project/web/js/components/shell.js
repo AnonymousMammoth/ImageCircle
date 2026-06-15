@@ -29,6 +29,8 @@ const shell = {
         check: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>',
         plus: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>',
         video: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z" /></svg>',
+        bell: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" /></svg>',
+        bellFill: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path fill-rule="evenodd" d="M5.25 9a6.75 6.75 0 0113.5 0v.75c0 2.123.8 4.057 2.118 5.52a.75.75 0 01-.297 1.206c-1.516.508-3.19.814-4.933.921a39.656 39.656 0 01-5.164 0 18.424 18.424 0 01-4.933-.921.75.75 0 01-.298-1.205A8.217 8.217 0 005.25 9.75V9zm6.006 11.394a.75.75 0 10-1.486.202c.331.996 1.274 1.704 2.48 1.704s2.149-.708 2.48-1.704a.75.75 0 00-1.486-.202c-.22.663-.854 1.106-1.994 1.106s-1.774-.443-1.994-1.106z" clip-rule="evenodd" /></svg>',
         warning: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" /></svg>',
         image: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a2.25 2.25 0 002.25-2.25V6a2.25 2.25 0 00-2.25-2.25H3.75A2.25 2.25 0 001.5 6v12a2.25 2.25 0 002.25 2.25z" /></svg>',
         quote: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 01.865-.501 48.172 48.172 0 003.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.015-7.53.163C2.694 3.333 1.5 4.726 1.5 6.328v.83c0 1.39.6 2.7 1.55 3.596" /></svg>'
@@ -47,6 +49,7 @@ const shell = {
             { id: 'home', label: 'Home', icon: 'home', activeIcon: 'homeFill' },
             { id: 'search', label: 'Search', icon: 'search', activeIcon: 'search' },
             { id: 'create', label: 'Create', icon: 'create', activeIcon: 'create' },
+            { id: 'notifications', label: 'Alerts', icon: 'bell', activeIcon: 'bellFill' },
             { id: 'profile', label: 'Profile', icon: 'profile', activeIcon: 'profileFill' }
         ];
 
@@ -76,6 +79,7 @@ const shell = {
         if (path === '/' || path === '/home') return 'home';
         if (path === '/search') return 'search';
         if (path === '/create') return 'create';
+        if (path === '/notifications') return 'notifications';
         if (path.startsWith('/profile')) return 'profile';
         return 'home';
     },
@@ -110,6 +114,8 @@ const shell = {
             searchComponent.render(content);
         } else if (path === '/create') {
             composerComponent.render(content);
+        } else if (path === '/notifications') {
+            notificationsComponent.render(content);
         } else if (path === '/profile' || path.startsWith('/profile/')) {
             profileComponent.render(content, router.params.id);
         } else if (path === '/settings') {
@@ -125,7 +131,8 @@ const shell = {
             const tabId = btn.getAttribute('data-tab');
             const isActive = tabId === active;
             btn.classList.toggle('active', isActive);
-            const iconKey = isActive && (tabId === 'home' || tabId === 'profile') ? tabId + 'Fill' : tabId;
+            const filledIcons = { home: 'homeFill', profile: 'profileFill', notifications: 'bellFill' };
+            const iconKey = isActive && filledIcons[tabId] ? filledIcons[tabId] : tabId;
             const label = btn.querySelector('span').textContent;
             btn.innerHTML = this.icons[iconKey] + '<span>' + escapeHtml(label) + '</span>';
         });

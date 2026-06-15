@@ -25,6 +25,7 @@ struct ProfileView: View {
     @State private var showLoadError = false
     @State private var avatarErrorMessage: String?
     @State private var showAvatarError = false
+    @State private var refreshTrigger = UUID()
     
     private var isCurrentUser: Bool {
         guard let user = user, let current = auth.currentUser else { return true }
@@ -64,15 +65,17 @@ struct ProfileView: View {
             SettingsView()
         }
         .sheet(item: $selectedPost) { post in
-            ProfilePostDetailView(post: post, onDelete: { Task { await loadPosts() } })
+            ProfilePostDetailView(post: post, onDelete: { refreshTrigger = UUID() })
         }
         .sheet(item: $commentPost) { post in
             CommentsSheetView(post: post)
         }
-        .task {
+        .refreshable {
+            refreshTrigger = UUID()
+        }
+        .task(id: refreshTrigger) {
             await loadPosts()
         }
-
         .alert("Error", isPresented: $showLoadError, presenting: loadErrorMessage) { _ in
             Button("OK") {}
         } message: { message in
@@ -173,9 +176,9 @@ struct ProfileView: View {
             ForEach(filteredPosts) { post in
                 PostCardView(
                     post: post,
-                    onLikeChanged: { Task { await loadPosts() } },
+                    onLikeChanged: { refreshTrigger = UUID() },
                     onCommentTapped: { commentPost = post },
-                    onDelete: { Task { await loadPosts() } }
+                    onDelete: { refreshTrigger = UUID() }
                 )
                 .id(post.id)
             }
@@ -345,13 +348,12 @@ struct ProfileView: View {
 struct ProfilePostDetailView: View {
     let post: Post
     let onDelete: () -> Void
-    @StateObject private var auth = AuthManager.shared
     @State private var showDeleteConfirmation = false
     @State private var isDeleting = false
     @Environment(\.dismiss) private var dismiss
     
-    private var isOwner: Bool {
-        auth.currentUser?.id == post.user.id
+    private var canDelete: Bool {
+        AuthManager.shared.canDelete(contentUserID: post.user.id)
     }
     
     var body: some View {
@@ -385,7 +387,7 @@ struct ProfilePostDetailView: View {
                 ToolbarItem(placement: .topBarLeading) {
                     Button("Done") { dismiss() }
                 }
-                if isOwner {
+                if canDelete {
                     ToolbarItem(placement: .topBarTrailing) {
                         Button(role: .destructive) {
                             showDeleteConfirmation = true
@@ -428,7 +430,7 @@ struct ProfilePostDetailView: View {
     }
     
     private func deletePost() {
-        guard isOwner else { return }
+        guard canDelete else { return }
         isDeleting = true
         Task {
             do {

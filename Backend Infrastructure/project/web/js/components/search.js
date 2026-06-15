@@ -5,8 +5,13 @@
 const searchComponent = {
     results: [],
     isSearching: false,
+    mountToken: null,
 
     render(container) {
+        if (this.mountToken) this.mountToken.cancel();
+        this.mountToken = createMountToken();
+        const token = this.mountToken;
+
         clearEl(container);
         container.className = 'screen-scroll tab-content';
 
@@ -23,12 +28,12 @@ const searchComponent = {
         const results = createEl('div', { id: 'search-results', className: 'search-results' });
         container.appendChild(results);
 
-        const doSearch = debounce((query) => this.search(query), 300);
+        const doSearch = debounce((query) => this.search(query, token), 300);
         input.addEventListener('input', (e) => {
             const query = e.target.value.trim();
             if (!query) {
                 this.results = [];
-                this.renderResults(results);
+                this.renderResults(results, token);
                 return;
             }
             doSearch(query);
@@ -37,21 +42,25 @@ const searchComponent = {
         input.focus();
     },
 
-    async search(query) {
+    async search(query, token) {
         this.isSearching = true;
         const results = document.getElementById('search-results');
-        if (results) this.renderResults(results);
+        if (results) this.renderResults(results, token);
         try {
             this.results = await searchUsers(query);
         } catch (err) {
             this.results = [];
         } finally {
             this.isSearching = false;
-            if (results) this.renderResults(results);
+            if (token && token.isActive()) {
+                const results = document.getElementById('search-results');
+                if (results) this.renderResults(results, token);
+            }
         }
     },
 
-    renderResults(container) {
+    renderResults(container, token) {
+        if (token && !token.isActive()) return;
         clearEl(container);
         if (this.isSearching) {
             container.appendChild(createEl('div', { className: 'loading-center' }, [createEl('div', { className: 'spinner' })]));

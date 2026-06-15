@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct MainTabView: View {
-    @StateObject private var auth = AuthManager.shared
+    @ObservedObject private var auth = AuthManager.shared
     @State private var selectedTab = 0
     @State private var refreshFeedTrigger = UUID()
     
@@ -41,12 +41,19 @@ struct MainTabView: View {
                 }
                 .tag(2)
             
-            ProfileView(user: auth.currentUser)
+            NotificationsView()
                 .tabItem {
-                    Image(systemName: selectedTab == 3 ? "person.fill" : "person")
-                    Text("Profile")
+                    Image(systemName: selectedTab == 3 ? "bell.fill" : "bell")
+                    Text("Notifications")
                 }
                 .tag(3)
+            
+            ProfileView(user: auth.currentUser)
+                .tabItem {
+                    Image(systemName: selectedTab == 4 ? "person.fill" : "person")
+                    Text("Profile")
+                }
+                .tag(4)
             
             if auth.isAdmin {
                 AdminView()
@@ -54,7 +61,7 @@ struct MainTabView: View {
                         Image(systemName: "shield.lefthalf.filled")
                         Text("Admin")
                     }
-                    .tag(4)
+                    .tag(5)
             }
         }
         .tint(.pink)

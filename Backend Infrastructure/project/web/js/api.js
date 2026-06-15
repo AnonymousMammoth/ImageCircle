@@ -203,6 +203,13 @@ async function deleteComment(commentId) {
     return apiDelete('/comments/' + commentId);
 }
 
+/* ---------- Notifications ---------- */
+
+async function fetchNotifications() {
+    const data = await apiGet('/notifications');
+    return data && data.notifications ? data.notifications : [];
+}
+
 /* ---------- Stories ---------- */
 
 async function fetchStories() {

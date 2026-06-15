@@ -24,6 +24,12 @@ final class AuthManager: ObservableObject {
     var isAdmin: Bool { currentUser?.isAdmin ?? false }
     var needsPasswordChange: Bool { currentUser?.passwordChangeRequired ?? false }
     
+    /// Whether the current user can delete content owned by another user.
+    func canDelete(contentUserID: Int) -> Bool {
+        guard let currentUser = currentUser else { return false }
+        return currentUser.id == contentUserID || currentUser.isAdmin
+    }
+    
     private var lastUsedPassword: String?
     
     private init() {

@@ -220,16 +220,11 @@ struct CreateComposerView: View {
     }
     
     private func loadRecentPhotos() {
-        let options = PHFetchOptions()
-        options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
-        options.fetchLimit = 60
-        options.predicate = NSPredicate(format: "mediaType == %d", PHAssetMediaType.image.rawValue)
-        let result = PHAsset.fetchAssets(with: options)
-        var fetched: [PHAsset] = []
-        result.enumerateObjects { asset, _, _ in
-            fetched.append(asset)
+        PhotoLibraryCache.shared.fetchRecentPhotos { fetched in
+            Task { @MainActor in
+                self.assets = fetched
+            }
         }
-        assets = fetched
     }
     
     private func selectAsset(_ asset: PHAsset) {
@@ -457,6 +452,49 @@ struct CameraPhotoPicker: UIViewControllerRepresentable {
         }
     }
 }
+
+// MARK: - Photo Library Cache
+
+final class PhotoLibraryCache {
+    static let shared = PhotoLibraryCache()
+    
+    private var assets: [PHAsset]?
+    private var isFetching = false
+    private var waiters: [@MainActor ([PHAsset]) -> Void] = []
+    
+    func fetchRecentPhotos(limit: Int = 60, completion: @escaping @MainActor ([PHAsset]) -> Void) {
+        if let assets = assets {
+            Task { @MainActor in completion(assets) }
+            return
+        }
+        waiters.append(completion)
+        guard !isFetching else { return }
+        isFetching = true
+        
+        Task.detached(priority: .userInitiated) { [weak self] in
+            let options = PHFetchOptions()
+            options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
+            options.fetchLimit = limit
+            options.predicate = NSPredicate(format: "mediaType == %d", PHAssetMediaType.image.rawValue)
+            let result = PHAsset.fetchAssets(with: options)
+            let fetched = result.objects(at: IndexSet(integersIn: 0..<result.count))
+            await MainActor.run { [weak self] in
+                guard let self = self else { return }
+                self.assets = fetched
+                self.isFetching = false
+                let handlers = self.waiters
+                self.waiters.removeAll()
+                handlers.forEach { $0(fetched) }
+            }
+        }
+    }
+    
+    func invalidate() {
+        assets = nil
+    }
+}
+
+// MARK: - Thumbnail Helpers
 
 private func squareThumbnailData(from image: UIImage, maxPixelSize: CGFloat = 512) -> Data? {
     guard let cgImage = image.cgImage else { return nil }

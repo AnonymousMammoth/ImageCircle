@@ -7,11 +7,11 @@ This folder contains the canonical guides for the Circle private photo/video sha
 | File | What it covers | Read this when… |
 |------|----------------|-----------------|
 | [`ARCHITECTURE.md`](ARCHITECTURE.md) | High-level system overview, components, data flow, auth, and security highlights. | You are new to the project. |
-| [`API_CONTRACT.md`](API_CONTRACT.md) | Canonical backend API routes, request/response shapes, multipart field names, iOS model mappings, and first-admin setup. | You are integrating a client, writing a new endpoint, or debugging the iOS ↔ backend contract. |
+| [`API_CONTRACT.md`](API_CONTRACT.md) | Canonical backend API routes, request/response shapes, multipart field names, iOS model mappings, cookie sessions, and first-admin setup. | You are integrating a client, writing a new endpoint, or debugging the iOS ↔ backend contract. |
 | [`AGENT_ONBOARDING.md`](AGENT_ONBOARDING.md) | Directory layout, how to build/test, coding conventions, common pitfalls, and how to keep docs in sync. | You are about to write or modify code. |
 | [`SECURITY.md`](SECURITY.md) | Security controls from the backend audit, mobile-specific notes, and deployment hardening checklist. | You are deploying, reviewing security, or changing auth/media handling. |
-| [`FRONTEND_NOTES.md`](FRONTEND_NOTES.md) | iOS SwiftUI architecture, key classes/views, and client-side behavior (feed filter, media display). | You are working on the iOS app. |
-| [`BACKEND_NOTES.md`](BACKEND_NOTES.md) | Go backend stack, middleware order, handler responsibilities, storage layout, env vars, and Docker/nginx wiring. | You are working on the Go backend. |
+| [`FRONTEND_NOTES.md`](FRONTEND_NOTES.md) | iOS SwiftUI architecture, key classes/views, and client-side behavior (feed filter, media display, notifications, camera). | You are working on the iOS app. |
+| [`BACKEND_NOTES.md`](BACKEND_NOTES.md) | Go backend stack, middleware order, handler responsibilities, storage layout, env vars, web app notes, and Docker/nginx wiring. | You are working on the Go backend. |
 
 ## Where to Start
 
@@ -23,4 +23,4 @@ This folder contains the canonical guides for the Circle private photo/video sha
 
 ## Important Note
 
-These documents describe the code as it exists today. Where the iOS client and backend are currently out of sync, the docs call it out explicitly (the biggest example is the iOS upload field name and a few iOS route paths). Always trust the source files over stale documentation.
+These documents describe the code as it exists today. The iOS client, web app, and backend are aligned on routes and field names as of the most recent passes. If you introduce a new mismatch, call it out explicitly and update the relevant contract docs.

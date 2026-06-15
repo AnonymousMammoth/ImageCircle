@@ -7,8 +7,14 @@ const homeComponent = {
     storyGroups: [],
     filter: 'mixed',
     isLoading: false,
+    hasLoaded: false,
+    mountToken: null,
 
     render(container) {
+        if (this.mountToken) this.mountToken.cancel();
+        this.mountToken = createMountToken();
+        const token = this.mountToken;
+
         clearEl(container);
         container.className = 'screen-scroll tab-content';
 
@@ -30,17 +36,27 @@ const homeComponent = {
 
         this.renderFeed(feedContainer);
 
-        // Pull to refresh via simple reload button / swipe down gesture
+        // Pull to refresh via swipe down gesture
         let startY = 0;
-        container.addEventListener('touchstart', (e) => { startY = e.touches[0].clientY; }, { passive: true });
-        container.addEventListener('touchend', (e) => {
+        let pullStart = 0;
+        const onTouchStart = (e) => {
+            startY = e.touches[0].clientY;
+            pullStart = container.scrollTop;
+        };
+        const onTouchEnd = (e) => {
             const endY = e.changedTouches[0].clientY;
-            if (endY - startY > 120 && container.scrollTop <= 0) {
-                this.loadData();
+            if (endY - startY > 120 && pullStart <= 0 && container.scrollTop <= 0) {
+                this.hasLoaded = false;
+                this.loadData(token);
             }
-        }, { passive: true });
+        };
+        container.addEventListener('touchstart', onTouchStart, { passive: true });
+        container.addEventListener('touchend', onTouchEnd, { passive: true });
 
-        this.loadData();
+        // Cache data and only fetch on first mount or explicit pull-to-refresh
+        if (!this.hasLoaded) {
+            this.loadData(token);
+        }
     },
 
     renderFilter() {
@@ -60,7 +76,6 @@ const homeComponent = {
                 this.filter = opt.key;
                 const feed = document.getElementById('feed-container');
                 if (feed) this.renderFeed(feed);
-                // update active state
                 Array.from(wrap.children).forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
             });
@@ -78,6 +93,7 @@ const homeComponent = {
     },
 
     renderFeed(container) {
+        if (!container) return;
         clearEl(container);
 
         if (this.isLoading && this.posts.length === 0) {
@@ -92,7 +108,7 @@ const homeComponent = {
         }
 
         filtered.forEach(post => {
-            const card = postCardComponent.render(post, () => this.loadData(), (p) => commentsComponent.open(p));
+            const card = postCardComponent.render(post, () => { this.hasLoaded = false; this.loadData(); }, (p) => commentsComponent.open(p));
             container.appendChild(card);
         });
     },
@@ -112,16 +128,19 @@ const homeComponent = {
         return state;
     },
 
-    async loadData() {
+    async loadData(token) {
+        if (this.isLoading) return;
+        token = token || this.mountToken;
         this.isLoading = true;
         const feed = document.getElementById('feed-container');
-        if (feed) this.renderFeed(feed);
+        if (feed && token && token.isActive()) this.renderFeed(feed);
 
         try {
             const [posts, stories] = await Promise.all([
                 fetchFeed(),
                 fetchStories()
             ]);
+            if (!token || !token.isActive()) return;
             this.posts = posts;
 
             let allStories = stories;
@@ -142,11 +161,13 @@ const homeComponent = {
                     this.storyGroups.unshift(own);
                 }
             }
+            this.hasLoaded = true;
         } catch (err) {
-            // Stories failure is non-fatal
+            if (!token || !token.isActive()) return;
             console.error(err);
         } finally {
             this.isLoading = false;
+            if (!token || !token.isActive()) return;
             const tray = document.querySelector('.stories-tray');
             if (tray) {
                 const newTray = storiesTrayComponent.render({

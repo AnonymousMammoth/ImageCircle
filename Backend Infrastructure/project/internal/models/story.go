@@ -47,7 +47,7 @@ func GetActiveStories(db *sql.DB, requestingUserID int64, limit, offset int) ([]
 	query := `
 		SELECT
 			s.id, s.user_id, s.media_filename, s.thumbnail_filename, s.media_type, s.created_at, s.expires_at,
-			u.id, u.username, u.display_name, u.password_hash, u.is_admin, u.password_change_required, u.avatar_filename, u.created_at,
+			u.id, u.username, u.display_name, u.is_admin, u.password_change_required, u.avatar_filename, u.created_at,
 			(SELECT COUNT(*) FROM story_views WHERE story_id = s.id) AS view_count
 		FROM stories s
 		JOIN users u ON s.user_id = u.id
@@ -75,7 +75,7 @@ func GetStoriesByUser(db *sql.DB, userID, requestingUserID int64, limit, offset 
 	query := `
 		SELECT
 			s.id, s.user_id, s.media_filename, s.thumbnail_filename, s.media_type, s.created_at, s.expires_at,
-			u.id, u.username, u.display_name, u.password_hash, u.is_admin, u.password_change_required, u.avatar_filename, u.created_at,
+			u.id, u.username, u.display_name, u.is_admin, u.password_change_required, u.avatar_filename, u.created_at,
 			(SELECT COUNT(*) FROM story_views WHERE story_id = s.id) AS view_count,
 			EXISTS(SELECT 1 FROM story_views WHERE story_id = s.id AND user_id = ?) AS viewed
 		FROM stories s
@@ -110,7 +110,7 @@ func GetStoryByID(db *sql.DB, id int64) (*Story, error) {
 	query := `
 		SELECT
 			s.id, s.user_id, s.media_filename, s.thumbnail_filename, s.media_type, s.created_at, s.expires_at,
-			u.id, u.username, u.display_name, u.password_hash, u.is_admin, u.password_change_required, u.avatar_filename, u.created_at,
+			u.id, u.username, u.display_name, u.is_admin, u.password_change_required, u.avatar_filename, u.created_at,
 			(SELECT COUNT(*) FROM story_views WHERE story_id = s.id) AS view_count
 		FROM stories s
 		JOIN users u ON s.user_id = u.id
@@ -125,7 +125,7 @@ func GetStoryByIDWithUserContext(db *sql.DB, id, requestingUserID int64) (*Story
 	query := `
 		SELECT
 			s.id, s.user_id, s.media_filename, s.thumbnail_filename, s.media_type, s.created_at, s.expires_at,
-			u.id, u.username, u.display_name, u.password_hash, u.is_admin, u.password_change_required, u.avatar_filename, u.created_at,
+			u.id, u.username, u.display_name, u.is_admin, u.password_change_required, u.avatar_filename, u.created_at,
 			(SELECT COUNT(*) FROM story_views WHERE story_id = s.id) AS view_count,
 			EXISTS(SELECT 1 FROM story_views WHERE story_id = s.id AND user_id = ?) AS viewed
 		FROM stories s
@@ -173,7 +173,7 @@ func GetExpiredStories(db *sql.DB) ([]*Story, error) {
 	query := `
 		SELECT
 			s.id, s.user_id, s.media_filename, s.thumbnail_filename, s.media_type, s.created_at, s.expires_at,
-			u.id, u.username, u.display_name, u.password_hash, u.is_admin, u.password_change_required, u.avatar_filename, u.created_at,
+			u.id, u.username, u.display_name, u.is_admin, u.password_change_required, u.avatar_filename, u.created_at,
 			(SELECT COUNT(*) FROM story_views WHERE story_id = s.id) AS view_count
 		FROM stories s
 		JOIN users u ON s.user_id = u.id
@@ -219,7 +219,6 @@ func scanStory(row *sql.Row, requestingUserID int64) (*Story, error) {
 		&u.ID,
 		&u.Username,
 		&u.DisplayName,
-		&u.PasswordHash,
 		&isAdminInt,
 		&passwordChangeRequiredInt,
 		&avatarFilename,
@@ -275,7 +274,6 @@ func scanStories(rows *sql.Rows, requestingUserID int64) ([]*Story, error) {
 			&u.ID,
 			&u.Username,
 			&u.DisplayName,
-			&u.PasswordHash,
 			&isAdminInt,
 			&passwordChangeRequiredInt,
 			&avatarFilename,

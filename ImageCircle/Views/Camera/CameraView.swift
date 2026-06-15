@@ -28,6 +28,7 @@ struct CameraView: View {
     @State private var errorMessage: String?
     @State private var showLibrary = false
     @State private var didPublish = false
+    @State private var pendingPhotoWorkItem: DispatchWorkItem?
     @Environment(\.dismiss) private var dismiss
     
     var body: some View {
@@ -68,6 +69,7 @@ struct CameraView: View {
                 Task { await camera.checkPermissionAndSetup() }
             }
             .onDisappear {
+                cancelPendingPhotoCapture()
                 camera.stopSession()
             }
             .alert("Camera Error", isPresented: $showError) {
@@ -170,30 +172,31 @@ struct CameraView: View {
                         }
                     }
                     .contentShape(Circle())
-                    .gesture(
-                        LongPressGesture(minimumDuration: 0.3, maximumDistance: 40)
-                            .onEnded { [self] _ in
-                                self.stopVideoRecording()
-                            }
-                            .sequenced(before: DragGesture(minimumDistance: 0))
-                            .onChanged { [self, camera] value in
-                                switch value {
-                                case .first(true):
-                                    // Tap detected — take photo after a brief delay so a long press can win.
-                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [self, camera] in
-                                        if !self.isHoldingVideo && !camera.isRecording {
-                                            self.capturePhoto()
-                                        }
-                                    }
-                                case .second(true, _):
-                                    // Long press detected — start video.
-                                    if !camera.isRecording {
-                                        self.startVideoRecording()
-                                    }
-                                default:
-                                    break
+                    .onLongPressGesture(
+                        minimumDuration: 0.3,
+                        maximumDistance: 40,
+                        pressing: { pressing in
+                            if pressing {
+                                // Touch down: schedule a photo capture after the long-press window.
+                                schedulePhotoCapture()
+                            } else {
+                                // Touch up / cancelled.
+                                if camera.isRecording || isHoldingVideo {
+                                    stopVideoRecording()
+                                } else if let item = pendingPhotoWorkItem {
+                                    item.cancel()
+                                    pendingPhotoWorkItem = nil
+                                    capturePhoto()
                                 }
                             }
+                        },
+                        perform: {
+                            // Long-press threshold reached — start video and cancel the pending photo.
+                            cancelPendingPhotoCapture()
+                            if !camera.isRecording {
+                                startVideoRecording()
+                            }
+                        }
                     )
                     
                     Spacer()
@@ -247,7 +250,25 @@ struct CameraView: View {
         .padding()
     }
     
+    private func schedulePhotoCapture() {
+        cancelPendingPhotoCapture()
+        let item = DispatchWorkItem { [self] in
+            self.pendingPhotoWorkItem = nil
+            if !self.camera.isRecording && !self.isHoldingVideo {
+                self.capturePhoto()
+            }
+        }
+        pendingPhotoWorkItem = item
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4, execute: item)
+    }
+    
+    private func cancelPendingPhotoCapture() {
+        pendingPhotoWorkItem?.cancel()
+        pendingPhotoWorkItem = nil
+    }
+    
     private func capturePhoto() {
+        guard capturedImage == nil && capturedVideoURL == nil else { return }
         Task {
             do {
                 if let image = try await camera.capturePhoto() {

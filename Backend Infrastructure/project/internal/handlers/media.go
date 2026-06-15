@@ -2,7 +2,10 @@ package handlers
 
 import (
 	"net/http"
+	"os"
+	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 
@@ -10,9 +13,10 @@ import (
 	"circle/internal/utils"
 )
 
-// MediaHandler handles generic media upload endpoints.
+// MediaHandler handles generic media upload and serving endpoints.
 type MediaHandler struct {
 	MediaStore *storage.MediaStore
+	MediaDir   string
 	MaxSize    int64
 }
 
@@ -56,4 +60,45 @@ func (h *MediaHandler) Upload(c *gin.Context) {
 		"filename": filename,
 		"url":      "/media/" + strconv.FormatInt(userID, 10) + "/" + filename,
 	})
+}
+
+// Serve streams an authenticated media file from disk.
+// It sanitizes the path, prevents directory traversal, and returns 404 for
+// directories or missing files. The response is marked private and not cacheable
+// by shared caches.
+func (h *MediaHandler) Serve(c *gin.Context) {
+	rel := strings.TrimPrefix(c.Param("filepath"), "/")
+	rel = filepath.Clean(rel)
+	if rel == "." || rel == "/" || rel == "" {
+		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"error": "not found"})
+		return
+	}
+
+	fullPath := filepath.Join(h.MediaDir, rel)
+	absPath, err := filepath.Abs(fullPath)
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"error": "not found"})
+		return
+	}
+
+	absRoot, err := filepath.Abs(h.MediaDir)
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "server error"})
+		return
+	}
+
+	// Ensure the resolved path stays within the media directory.
+	if !strings.HasPrefix(absPath, absRoot+string(filepath.Separator)) && absPath != absRoot {
+		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"error": "not found"})
+		return
+	}
+
+	info, err := os.Stat(absPath)
+	if err != nil || info.IsDir() {
+		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"error": "not found"})
+		return
+	}
+
+	c.Header("Cache-Control", "private")
+	c.File(absPath)
 }

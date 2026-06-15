@@ -41,7 +41,7 @@ func GetCommentsByPost(db *sql.DB, postID int64, limit, offset int) ([]*Comment,
 	query := `
 		SELECT
 			c.id, c.post_id, c.user_id, c.text, c.created_at,
-			u.id, u.username, u.display_name, u.password_hash, u.is_admin, u.password_change_required, u.created_at
+			u.id, u.username, u.display_name, u.is_admin, u.password_change_required, u.created_at
 		FROM comments c
 		JOIN users u ON c.user_id = u.id
 		WHERE c.post_id = ?
@@ -62,7 +62,7 @@ func GetCommentByID(db *sql.DB, id int64) (*Comment, error) {
 	query := `
 		SELECT
 			c.id, c.post_id, c.user_id, c.text, c.created_at,
-			u.id, u.username, u.display_name, u.password_hash, u.is_admin, u.password_change_required, u.created_at
+			u.id, u.username, u.display_name, u.is_admin, u.password_change_required, u.created_at
 		FROM comments c
 		JOIN users u ON c.user_id = u.id
 		WHERE c.id = ?
@@ -117,7 +117,6 @@ func scanComment(row *sql.Row) (*Comment, error) {
 		&u.ID,
 		&u.Username,
 		&u.DisplayName,
-		&u.PasswordHash,
 		&isAdminInt,
 		&passwordChangeRequiredInt,
 		&u.CreatedAt,
@@ -155,7 +154,6 @@ func scanComments(rows *sql.Rows) ([]*Comment, error) {
 			&u.ID,
 			&u.Username,
 			&u.DisplayName,
-			&u.PasswordHash,
 			&isAdminInt,
 			&passwordChangeRequiredInt,
 			&u.CreatedAt,

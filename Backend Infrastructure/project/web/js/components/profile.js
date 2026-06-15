@@ -6,23 +6,29 @@ const profileComponent = {
     user: null,
     posts: [],
     filter: 'mixed',
+    mountToken: null,
 
     async render(container, userId) {
+        if (this.mountToken) this.mountToken.cancel();
+        this.mountToken = createMountToken();
+        const token = this.mountToken;
+
         clearEl(container);
         container.className = 'screen-scroll tab-content';
 
         const isCurrentUser = !userId || (state.user && String(state.user.id) === String(userId));
 
         if (!isCurrentUser) {
-            // Need to fetch user info. Since there is no single user endpoint, we search via posts.
             try {
                 this.posts = await fetchUserPosts(userId);
+                if (!token.isActive()) return;
                 if (this.posts.length > 0) {
                     this.user = this.posts[0].user;
                 } else {
                     this.user = { id: userId, username: 'User', display_name: 'User' };
                 }
             } catch (err) {
+                if (!token.isActive()) return;
                 showAlert(err.message);
                 this.user = { id: userId, username: 'User', display_name: 'User' };
                 this.posts = [];
@@ -32,11 +38,13 @@ const profileComponent = {
             try {
                 this.posts = await fetchUserPosts(state.user.id);
             } catch (err) {
+                if (!token.isActive()) return;
                 showAlert(err.message);
                 this.posts = [];
             }
         }
 
+        if (!token.isActive()) return;
         this.renderHeader(container, isCurrentUser);
         this.renderFilter(container);
         this.renderGrid(container);
@@ -190,7 +198,7 @@ const profileComponent = {
         counts.appendChild(createEl('span', { text: post.comments_count + ' comments' }));
         detail.appendChild(counts);
 
-        if (isOwnContent(post.user.id, state.user)) {
+        if (canManageContent(post.user.id, state.user)) {
             const delBtn = createEl('button', { className: 'btn btn-danger', style: 'margin-top:16px;width:100%;' });
             delBtn.innerHTML = shell.icons.trash + ' Delete Post';
             delBtn.addEventListener('click', () => this.deletePost(post, overlay));

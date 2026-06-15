@@ -7,10 +7,21 @@
 
 import SwiftUI
 
+import Kingfisher
+
 @main
 struct ImageCircleApp: App {
     @StateObject private var auth = AuthManager.shared
     @State private var isLoading = true
+    
+    init() {
+        // Share the same cookie storage as the API client so authenticated
+        // media requests (/media/*) include the session cookie set by login.
+        let config = URLSessionConfiguration.default
+        config.httpCookieStorage = HTTPCookieStorage.shared
+        config.httpShouldSetCookies = true
+        KingfisherManager.shared.downloader.sessionConfiguration = config
+    }
     
     var body: some Scene {
         WindowGroup {

@@ -5,6 +5,8 @@
 const router = {
     currentRoute: '',
     params: {},
+    _resolveTimer: null,
+    _lastHash: '',
 
     init() {
         window.addEventListener('hashchange', () => this.resolve());
@@ -14,20 +16,26 @@ const router = {
 
     resolve() {
         const hash = window.location.hash || '#/';
-        const clean = hash.replace(/^#/, '') || '/';
-        const [path, query] = clean.split('?');
-        this.currentRoute = path;
-        this.params = {};
+        if (this._lastHash === hash) return;
+        this._lastHash = hash;
 
-        const parts = path.split('/').filter(Boolean);
-        if (parts.length >= 2 && parts[0] === 'profile') {
-            this.params.id = parts[1];
-        }
+        if (this._resolveTimer) clearTimeout(this._resolveTimer);
+        this._resolveTimer = setTimeout(() => {
+            const clean = hash.replace(/^#/, '') || '/';
+            const [path, query] = clean.split('?');
+            this.currentRoute = path;
+            this.params = {};
 
-        const event = new CustomEvent('circle:route', {
-            detail: { path, query, params: this.params, parts }
-        });
-        window.dispatchEvent(event);
+            const parts = path.split('/').filter(Boolean);
+            if (parts.length >= 2 && parts[0] === 'profile') {
+                this.params.id = parts[1];
+            }
+
+            const event = new CustomEvent('circle:route', {
+                detail: { path, query, params: this.params, parts }
+            });
+            window.dispatchEvent(event);
+        }, 30);
     },
 
     navigate(path) {

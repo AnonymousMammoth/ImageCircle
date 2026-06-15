@@ -1,6 +1,5 @@
 /**
- * Browser getUserMedia camera with photo capture.
- * Video recording is optional; we keep it simple and photo-first.
+ * Browser getUserMedia camera with photo capture and hold-to-record video.
  */
 
 const cameraComponent = {
@@ -8,6 +7,13 @@ const cameraComponent = {
     videoEl: null,
     onComplete: null,
     overlay: null,
+    mediaRecorder: null,
+    recordedChunks: [],
+    recordTimer: null,
+    isRecording: false,
+    holdStartTime: 0,
+    holdThresholdMs: 250,
+    didRecord: false,
 
     open(onComplete) {
         this.onComplete = onComplete;
@@ -37,9 +43,15 @@ const cameraComponent = {
         switchBtn.addEventListener('click', () => this.switchCamera());
 
         const shutter = createEl('button', { className: 'camera-shutter', id: 'camera-shutter' });
-        shutter.addEventListener('click', () => this.takePhoto());
+        // Tap = photo, hold = video
+        shutter.addEventListener('pointerdown', (e) => this.onShutterDown(e));
+        shutter.addEventListener('pointerup', (e) => this.onShutterUp(e));
+        shutter.addEventListener('pointerleave', (e) => this.onShutterUp(e));
+        shutter.addEventListener('pointercancel', (e) => this.onShutterUp(e));
+        // Prevent context menu on long press
+        shutter.addEventListener('contextmenu', (e) => e.preventDefault());
 
-        const fileInput = createEl('input', { type: 'file', accept: 'image/*', className: 'hidden', id: 'camera-file' });
+        const fileInput = createEl('input', { type: 'file', accept: 'image/*,video/*', className: 'hidden', id: 'camera-file' });
         fileInput.addEventListener('change', (e) => {
             if (e.target.files && e.target.files[0]) {
                 this.complete(e.target.files[0]);
@@ -65,7 +77,7 @@ const cameraComponent = {
         try {
             this.stream = await navigator.mediaDevices.getUserMedia({
                 video: { facingMode: 'environment' },
-                audio: false
+                audio: true
             });
             this.videoEl.srcObject = this.stream;
         } catch (err) {
@@ -84,17 +96,46 @@ const cameraComponent = {
         try {
             this.stream = await navigator.mediaDevices.getUserMedia({
                 video: { facingMode: newFacing },
-                audio: false
+                audio: true
             });
             this.videoEl.srcObject = this.stream;
         } catch (err) {
-            // Try to restore previous
             this.startCamera();
+        }
+    },
+
+    onShutterDown(e) {
+        if (this.isRecording || !this.stream) return;
+        if (e && e.target) e.target.setPointerCapture(e.pointerId);
+        this.holdStartTime = Date.now();
+        this.didRecord = false;
+        // If held long enough, start recording
+        this.recordTimer = setTimeout(() => {
+            this.startRecording();
+        }, this.holdThresholdMs);
+    },
+
+    onShutterUp(e) {
+        if (e && e.target && e.target.hasPointerCapture && e.target.hasPointerCapture(e.pointerId)) {
+            try { e.target.releasePointerCapture(e.pointerId); } catch (_) {}
+        }
+        if (this.recordTimer) {
+            clearTimeout(this.recordTimer);
+            this.recordTimer = null;
+        }
+        if (this.isRecording) {
+            this.stopRecording();
+        } else if (!this.didRecord) {
+            const elapsed = Date.now() - this.holdStartTime;
+            if (elapsed < this.holdThresholdMs) {
+                this.takePhoto();
+            }
         }
     },
 
     takePhoto() {
         if (!this.videoEl || !this.videoEl.videoWidth) return;
+        this.didRecord = true;
         const canvas = document.createElement('canvas');
         canvas.width = this.videoEl.videoWidth;
         canvas.height = this.videoEl.videoHeight;
@@ -106,6 +147,56 @@ const cameraComponent = {
                 this.complete(file);
             }
         }, 'image/jpeg', 0.92);
+    },
+
+    startRecording() {
+        if (!this.stream || this.isRecording) return;
+        this.isRecording = true;
+        this.didRecord = true;
+        this.recordedChunks = [];
+        const shutter = document.getElementById('camera-shutter');
+        if (shutter) shutter.classList.add('recording');
+
+        try {
+            this.mediaRecorder = new MediaRecorder(this.stream, { mimeType: this.getRecorderMimeType() });
+        } catch (err) {
+            this.showError('Video recording is not supported on this device.');
+            this.isRecording = false;
+            if (shutter) shutter.classList.remove('recording');
+            return;
+        }
+
+        this.mediaRecorder.ondataavailable = (e) => {
+            if (e.data && e.data.size > 0) this.recordedChunks.push(e.data);
+        };
+
+        this.mediaRecorder.onstop = () => {
+            const mimeType = this.mediaRecorder.mimeType || 'video/webm';
+            const ext = mimeType.includes('mp4') ? 'mp4' : 'webm';
+            const blob = new Blob(this.recordedChunks, { type: mimeType });
+            const file = new File([blob], 'camera-video.' + ext, { type: mimeType });
+            this.complete(file);
+        };
+
+        this.mediaRecorder.start();
+    },
+
+    stopRecording() {
+        if (!this.isRecording || !this.mediaRecorder) return;
+        if (this.mediaRecorder.state !== 'inactive') {
+            this.mediaRecorder.stop();
+        }
+        this.isRecording = false;
+        const shutter = document.getElementById('camera-shutter');
+        if (shutter) shutter.classList.remove('recording');
+    },
+
+    getRecorderMimeType() {
+        const types = ['video/mp4', 'video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'];
+        for (const type of types) {
+            if (MediaRecorder.isTypeSupported(type)) return type;
+        }
+        return '';
     },
 
     complete(file) {
@@ -125,6 +216,14 @@ const cameraComponent = {
     },
 
     close() {
+        if (this.recordTimer) {
+            clearTimeout(this.recordTimer);
+            this.recordTimer = null;
+        }
+        if (this.isRecording && this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
+            this.mediaRecorder.stop();
+        }
+        this.isRecording = false;
         if (this.stream) {
             this.stream.getTracks().forEach(track => track.stop());
             this.stream = null;
@@ -134,5 +233,8 @@ const cameraComponent = {
             this.overlay = null;
         }
         this.videoEl = null;
+        this.mediaRecorder = null;
+        this.recordedChunks = [];
+        this.didRecord = false;
     }
 };

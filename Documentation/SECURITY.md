@@ -12,6 +12,7 @@ This document summarizes the security posture of the backend, mobile-specific no
 | Token expiry | 30 days in JWT claims; `sessions.expires_at` also enforced. |
 | Token revocation | Logout deletes the session row; auth middleware rejects tokens missing from `sessions`. |
 | Bearer parsing | `Authorization: Bearer <token>` validated for format. |
+| Cookie-based session | `circle_session` cookie set on login/setup/refresh/change-password; cleared on logout. `SameSite=Strict`, `HttpOnly`; `Secure` controlled by `CIRCLE_COOKIE_SECURE`. |
 | Password hashing | bcrypt with configurable cost (default `12`). |
 | Password strength | Minimum 8 characters, one uppercase, one lowercase, one digit. |
 | Temporary passwords | 12 characters, crypto-random, at least one of each character class. |
@@ -27,9 +28,10 @@ This document summarizes the security posture of the backend, mobile-specific no
 | No PII in logs | Logger records only method, path, status, duration. |
 | IP hashing | Rate limiter keys are SHA256 of the client IP; raw IPs are not stored long-term. |
 | EXIF GPS rejection | Server validates no GPS data via `goexif`; rejects uploads containing location data. |
-| Password hash exclusion | `json:"-"` on `PasswordHash`; manually cleared before JSON serialization. |
+| Password hash exclusion | `json:"-"` on `PasswordHash`; manually cleared before JSON serialization; also omitted from feed/comment/story queries. |
 | No email/phone collection | Schema has no email or phone fields. |
 | UUID filenames | Media stored as `{uuid}.{ext}`; no metadata in filename. |
+| Authenticated media access | `GET /media/*` requires a valid session (Bearer or `circle_session` cookie); path sanitized and constrained to the media directory. |
 | No analytics / tracking | No external calls, tracking pixels, or analytics IDs. |
 
 ### Network Security
@@ -45,6 +47,7 @@ This document summarizes the security posture of the backend, mobile-specific no
 | Permissions-Policy | `camera=(), microphone=(), geolocation=()`. |
 | Rate limiting | Token bucket, default 100 req/min per hashed IP, returns `429` + `Retry-After`. |
 | Hidden file blocking | nginx denies `.*` paths; Go static handler validates path prefix. |
+| Cookie security | `circle_session` is `SameSite=Strict`, `HttpOnly`. Set `CIRCLE_COOKIE_SECURE=true` only behind HTTPS. |
 | Media file permissions | Files created with `0o600`; directories with `0o700`. |
 
 ### Input Validation & Injection Prevention
@@ -55,7 +58,7 @@ This document summarizes the security posture of the backend, mobile-specific no
 | XSS (admin panel) | User data escaped with `escapeHtml()` before DOM insertion. |
 | File type validation | Magic bytes detection for JPEG, PNG, MP4, MOV, HEIC. |
 | File size limits | Configurable `CIRCLE_MAX_MEDIA_SIZE` (default 50 MB). |
-| Path traversal | Admin static handler uses `filepath.Clean` + prefix validation. |
+| Path traversal | Admin static handler and `MediaHandler.Serve` use `filepath.Clean` + prefix validation. |
 | Input sanitization | Username/display name trimmed; username length 3–30. |
 | Integer IDs | All route params parsed with `strconv.ParseInt`. |
 
@@ -76,7 +79,7 @@ This document summarizes the security posture of the backend, mobile-specific no
 |---------|----------------|
 | Multi-stage Docker build | Builder stage discarded; final Alpine image is small. |
 | Health check | wget against `/api/health` every 30s. |
-| nginx media serving | Go backend is not involved in media delivery. |
+| nginx media serving | nginx proxies `/media/` to Go so the backend can authenticate every request. |
 | Graceful shutdown | SIGINT/SIGTERM handled with 10s timeout. |
 | SQLite WAL mode | `journal_mode=WAL`; foreign keys enabled; busy timeout 5000 ms. |
 | Connection limits | `MaxOpenConns=1`, `MaxIdleConns=1` (correct for SQLite). |
@@ -88,6 +91,7 @@ This document summarizes the security posture of the backend, mobile-specific no
 - The iOS JWT is stored in the Keychain via `KeychainHelper` (`ImageCircle/Services/KeychainHelper.swift`).
 - Accessibility level: `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly`.
 - The server URL is stored in `UserDefaults`; the token is not.
+- The iOS `URLSession` uses `HTTPCookieStorage.shared`, so the `circle_session` cookie is available for authenticated media requests from `KFImage` and `VideoPlayer`.
 
 ### Certificate Pinning
 
@@ -119,6 +123,7 @@ Before exposing Circle to real users, verify every item:
   openssl rand -base64 64
   ```
 - [ ] **HTTPS / TLS configured.** Use Tailscale, Cloudflare Tunnel, or a reverse proxy with Let’s Encrypt. Do not expose plain HTTP to the internet.
+- [ ] **Cookie Secure flag set.** Set `CIRCLE_COOKIE_SECURE=true` in production **only when HTTPS is enabled**. Leaving it `false` over plain HTTP is required for cookies to be sent.
 - [ ] **Admin panel access restricted.** Access via SSH tunnel, Tailscale, or VPN only.
 - [ ] **Firewall rules set.** Only necessary ports open (or none if using Tailscale).
 - [ ] **Regular backups configured.** Automate backup of `/data` (SQLite DB + media).
@@ -132,7 +137,7 @@ Before exposing Circle to real users, verify every item:
 ## Threat Model Notes
 
 - This app is **not designed for public internet exposure**. It is intended for private networks, VPNs, or Tailscale meshes.
-- Media URLs are unguessable but are not access-controlled per user. Anyone who obtains a `/media/{user_id}/{filename}` URL can view the file.
+- Media URLs now require a valid session token (Bearer header or `circle_session` cookie). Deep links to `/media/` are rejected for anonymous users.
 - SQLite and the in-memory rate limiter mean the system cannot scale horizontally. This is by design for small private deployments.
 - There is no SMTP server. Password resets require an admin to generate a new temporary password.
 

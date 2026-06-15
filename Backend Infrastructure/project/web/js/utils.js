@@ -227,6 +227,25 @@ function isOwnContent(userId, currentUser) {
     return String(currentUser.id) === String(userId);
 }
 
+function canManageContent(userId, currentUser) {
+    if (!currentUser) return false;
+    return !!currentUser.is_admin || String(currentUser.id) === String(userId);
+}
+
+function createMountToken() {
+    let active = true;
+    return {
+        isActive() { return active; },
+        cancel() { active = false; },
+        guard(fn) {
+            return function(...args) {
+                if (!active) return;
+                return fn.apply(this, args);
+            };
+        }
+    };
+}
+
 /* ---------- Modal / sheet helpers ---------- */
 
 function showAlert(message, title) {

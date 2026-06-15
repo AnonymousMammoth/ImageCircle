@@ -4,7 +4,9 @@ This document describes the backend API as it is implemented today in `Backend I
 
 ## Authentication
 
-All protected endpoints require an `Authorization: Bearer <jwt>` header, and the token must also exist in the `sessions` table and not be expired.
+All protected endpoints accept either an `Authorization: Bearer <jwt>` header **or** a `circle_session` cookie containing the same JWT. The token must also exist in the `sessions` table and not be expired.
+
+Login, setup, refresh, and change-password set the `circle_session` cookie (`SameSite=Strict`, `HttpOnly`). Logout clears it. Set `CIRCLE_COOKIE_SECURE=true` in production so the cookie is only sent over HTTPS.
 
 ### Public endpoints
 
@@ -20,7 +22,7 @@ All protected endpoints require an `Authorization: Bearer <jwt>` header, and the
 |--------|------|-------|-----------------------|----------|
 | `POST` | `/api/auth/refresh` | No | — | `200` `{ token, expires_at }` |
 | `POST` | `/api/auth/change-password` | No | JSON `{ current_password, new_password }` | `200` `{ token, success: true, expires_at }` |
-| `POST` | `/api/auth/logout` | No | `Authorization` header | `204` |
+| `POST` | `/api/auth/logout` | No | `Authorization` header or cookie | `204` |
 | `GET` | `/api/users/me` | No | — | `200` User |
 | `PUT` | `/api/users/me` | No | JSON `{ display_name }` | `200` User |
 | `GET` | `/api/users/search` | No | Query `q` | `200` `{ users: [...] }` |
@@ -43,16 +45,17 @@ All protected endpoints require an `Authorization: Bearer <jwt>` header, and the
 | `GET` | `/api/posts/:id/comments` | No | — | `200` `{ comments: [...] }` |
 | `POST` | `/api/posts/:id/comments` | No | JSON `{ text }` | `201` Comment |
 | `DELETE` | `/api/comments/:id` | No | — | `204` |
+| `GET` | `/api/notifications` | No | Query `page`, `limit` | `200` `{ notifications: [...] }` |
 | `POST` | `/api/media` | No | `multipart/form-data` (`media`) | `200` `{ filename, url }` |
 
 ### Static / media
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| `GET` | `/media/:user_id/:filename` | No (URL is unguessable) | Uploaded media files. In production nginx serves these directly; the Go backend also mounts `router.Static("/media", cfg.MediaDir)` for non-nginx runs. |
+| `GET` | `/media/:user_id/:filename` | Yes (Bearer or `circle_session` cookie) | Uploaded media files. The Go backend serves these via `MediaHandler.Serve` after auth; nginx proxies `/media/` to the Go backend. |
 | `GET` | `/admin` | No (admin login required in UI) | Serves the web admin panel SPA. |
 | `GET` | `/admin/*` | No | Static files or SPA fallback. |
-| `GET` | `/` | No | Redirects to `/admin`. |
+| `GET` | `/` | No | Serves the web app shell (`web/index.html`). |
 
 ## Request / Response Details
 
@@ -82,6 +85,8 @@ Content-Type: application/json
   "expires_at": "2026-07-14T10:00:00Z"
 }
 ```
+
+The response also sets the `circle_session` cookie when requested through a browser.
 
 ### Create a media post
 
@@ -223,6 +228,50 @@ Response:
 }
 ```
 
+### Notifications
+
+```http
+GET /api/notifications?page=1&limit=20
+Authorization: Bearer <token>
+```
+
+Response:
+
+```json
+{
+  "notifications": [
+    {
+      "id": 123,
+      "type": "like",
+      "actor": { "id": 2, "username": "bob", "display_name": "Bob", ... },
+      "post": {
+        "id": 42,
+        "user_id": 1,
+        "caption": "Hello",
+        "media_url": "/media/1/a1b2c3d4.jpg",
+        "thumbnail_url": "/media/1/thumb.jpg",
+        "created_at": "2026-06-14T10:05:00Z"
+      },
+      "created_at": "2026-06-14T10:15:00Z"
+    },
+    {
+      "id": 124,
+      "type": "comment",
+      "actor": { "id": 3, "username": "carol", "display_name": "Carol", ... },
+      "post": { ... },
+      "comment": {
+        "id": 5,
+        "text": "Nice shot!",
+        "created_at": "2026-06-14T10:20:00Z"
+      },
+      "created_at": "2026-06-14T10:20:00Z"
+    }
+  ]
+}
+```
+
+Notifications are likes and comments on posts owned by the current user, ordered newest first.
+
 ## Text-Only Post Creation
 
 The iOS client contains a `createTextPost(caption:)` method that sends:
@@ -300,6 +349,19 @@ var isTextOnly: Bool { mediaFilename == nil || mediaFilename?.isEmpty == true }
 | `text` | `text` |
 | `createdAt` | `created_at` |
 
+### `AppNotification` → backend `Notification`
+
+| Swift property | JSON key | Notes |
+|----------------|----------|-------|
+| `id` | `id` | |
+| `type` | `type` | `"like"` or `"comment"`. |
+| `actor` | `actor` | Embedded `User` object. |
+| `post` | `post` | `NotificationPost` (minimal). |
+| `comment` | `comment` | Present only for `"comment"` notifications. |
+| `createdAt` | `created_at` | ISO-8601 string. |
+
+`NotificationPost` maps `user_id`, `media_url`, and `thumbnail_url`. `NotificationComment` maps `id`, `text`, and `created_at`.
+
 ## iOS ↔ Backend Alignment
 
 The iOS `APIClient.swift` is now aligned with the backend routes and field names below. These paths were fixed in the most recent pass; the mismatch table has been retired.
@@ -309,6 +371,7 @@ The iOS `APIClient.swift` is now aligned with the backend routes and field names
 | `fetchMe()` | `GET /api/users/me` | `GET /api/users/me` |
 | `fetchFeed()` | `GET /api/posts` | `GET /api/posts` |
 | `searchUsers(q:)` | `GET /api/users/search?q=...` | `GET /api/users/search` |
+| `fetchNotifications()` | `GET /api/notifications` | `GET /api/notifications` |
 | `adminFetchUsers()` | `GET /api/users` | `GET /api/users` (admin) |
 | `adminCreateUser(...)` | `POST /api/users` | `POST /api/users` (admin) |
 | `adminDeleteUser(id:)` | `DELETE /api/users/:id` | `DELETE /api/users/:id` (admin) |
@@ -354,7 +417,7 @@ Response (`200 OK`) when the database has no users:
 }
 ```
 
-If any user already exists, the endpoint returns `403` `{ "error": "setup already complete" }`.
+If any user already exists, the endpoint returns `403` `{ "error": "setup already complete" }`. The response also sets the `circle_session` cookie.
 
 ### Creating additional users
 

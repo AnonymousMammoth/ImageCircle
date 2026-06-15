@@ -4,8 +4,11 @@
 
 const commentsComponent = {
     post: null,
+    mountToken: null,
 
     open(post) {
+        if (this.mountToken) this.mountToken.cancel();
+        this.mountToken = createMountToken();
         this.post = post;
         this.render();
         this.loadComments();
@@ -73,6 +76,10 @@ const commentsComponent = {
         const sheet = document.getElementById('comments-sheet');
         if (sheet) sheet.remove();
         this.post = null;
+        if (this.mountToken) {
+            this.mountToken.cancel();
+            this.mountToken = null;
+        }
     },
 
     async loadComments() {
@@ -83,6 +90,7 @@ const commentsComponent = {
 
         try {
             const comments = await fetchComments(this.post.id);
+            if (this.mountToken && !this.mountToken.isActive()) return;
             clearEl(list);
             if (comments.length === 0) {
                 list.appendChild(createEl('p', {
@@ -96,6 +104,7 @@ const commentsComponent = {
                 list.appendChild(this.renderComment(comment));
             });
         } catch (err) {
+            if (this.mountToken && !this.mountToken.isActive()) return;
             clearEl(list);
             list.appendChild(createEl('p', { className: 'error-text', style: 'text-align:center;padding:20px;', text: err.message }));
         }
@@ -128,7 +137,7 @@ const commentsComponent = {
         el.appendChild(avatar);
         el.appendChild(body);
 
-        if (isOwnContent(comment.user.id, state.user)) {
+        if (canManageContent(comment.user.id, state.user)) {
             const delBtn = createEl('button', { className: 'btn-icon btn-small', style: 'width:32px;height:32px;' });
             delBtn.innerHTML = shell.icons.trash;
             delBtn.addEventListener('click', () => this.deleteComment(comment));

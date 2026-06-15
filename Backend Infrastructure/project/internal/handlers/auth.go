@@ -17,6 +17,7 @@ type AuthHandler struct {
 	DB           *sql.DB
 	JWTSecret    []byte
 	PasswordCost int
+	CookieSecure bool
 }
 
 // LoginRequest represents a login request.
@@ -35,6 +36,34 @@ type ChangePasswordRequest struct {
 type SetupRequest struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
+}
+
+// setSessionCookie sets the circle_session cookie with the given token and expiry.
+func setSessionCookie(c *gin.Context, token string, expiry time.Time, secure bool) {
+	c.SetSameSite(http.SameSiteStrictMode)
+	c.SetCookie(
+		"circle_session",
+		token,
+		int(time.Until(expiry).Seconds()),
+		"/",
+		"",
+		secure,
+		true,
+	)
+}
+
+// clearSessionCookie clears the circle_session cookie.
+func clearSessionCookie(c *gin.Context, secure bool) {
+	c.SetSameSite(http.SameSiteStrictMode)
+	c.SetCookie(
+		"circle_session",
+		"",
+		-1,
+		"/",
+		"",
+		secure,
+		true,
+	)
 }
 
 // Login authenticates a user and returns a JWT token.
@@ -78,6 +107,8 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
+	setSessionCookie(c, token, expiry, h.CookieSecure)
+
 	// Return user without password hash
 	user.PasswordHash = ""
 	utils.RespondJSON(c, http.StatusOK, gin.H{
@@ -114,6 +145,8 @@ func (h *AuthHandler) Refresh(c *gin.Context) {
 		utils.RespondError(c, http.StatusInternalServerError, "failed to create session")
 		return
 	}
+
+	setSessionCookie(c, token, expiry, h.CookieSecure)
 
 	utils.RespondJSON(c, http.StatusOK, gin.H{
 		"token":      token,
@@ -189,6 +222,8 @@ func (h *AuthHandler) ChangePassword(c *gin.Context) {
 		return
 	}
 
+	setSessionCookie(c, token, expiry, h.CookieSecure)
+
 	utils.RespondJSON(c, http.StatusOK, gin.H{
 		"token":   token,
 		"success": true,
@@ -254,6 +289,8 @@ func (h *AuthHandler) Setup(c *gin.Context) {
 		return
 	}
 
+	setSessionCookie(c, token, expiry, h.CookieSecure)
+
 	user.PasswordHash = ""
 	utils.RespondJSON(c, http.StatusOK, gin.H{
 		"token":      token,
@@ -264,19 +301,28 @@ func (h *AuthHandler) Setup(c *gin.Context) {
 
 // Logout blacklists the current JWT token.
 func (h *AuthHandler) Logout(c *gin.Context) {
+	tokenString := ""
+
 	authHeader := c.GetHeader("Authorization")
-	if authHeader == "" {
-		utils.RespondError(c, http.StatusBadRequest, "authorization header required")
+	if authHeader != "" {
+		parts := strings.SplitN(authHeader, " ", 2)
+		if len(parts) == 2 && strings.EqualFold(parts[0], "Bearer") {
+			tokenString = parts[1]
+		}
+	}
+
+	if tokenString == "" {
+		if cookie, err := c.Cookie("circle_session"); err == nil && cookie != "" {
+			tokenString = cookie
+		}
+	}
+
+	if tokenString == "" {
+		utils.RespondError(c, http.StatusBadRequest, "authorization required")
 		return
 	}
 
-	parts := strings.SplitN(authHeader, " ", 2)
-	if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
-		utils.RespondError(c, http.StatusBadRequest, "invalid authorization header format")
-		return
-	}
-
-	tokenString := parts[1]
+	clearSessionCookie(c, h.CookieSecure)
 
 	// Delete the session to blacklist the token
 	if err := models.DeleteSession(h.DB, tokenString); err != nil {

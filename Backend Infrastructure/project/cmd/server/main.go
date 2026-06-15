@@ -117,6 +117,7 @@ func main() {
 		DB:           sqlDB,
 		JWTSecret:    cfg.JWTSecret,
 		PasswordCost: cfg.PasswordCost,
+		CookieSecure: cfg.CookieSecure,
 	}
 
 	userHandler := &handlers.UserHandler{
@@ -145,8 +146,13 @@ func main() {
 		DB: sqlDB,
 	}
 
+	notificationHandler := &handlers.NotificationHandler{
+		DB: sqlDB,
+	}
+
 	mediaHandler := &handlers.MediaHandler{
 		MediaStore: mediaStore,
+		MediaDir:   cfg.MediaDir,
 		MaxSize:    cfg.MaxMediaSize,
 	}
 
@@ -210,12 +216,13 @@ func main() {
 		auth.POST("/api/posts/:id/comments", commentHandler.CreateComment)
 		auth.DELETE("/api/comments/:id", commentHandler.DeleteComment)
 
+		// Notifications
+		auth.GET("/api/notifications", notificationHandler.ListNotifications)
+
 		// Media
 		auth.POST("/api/media", mediaHandler.Upload)
+		auth.GET("/media/*filepath", mediaHandler.Serve)
 	}
-
-	// Serve media files (public access - URLs are already unguessable)
-	router.Static("/media", cfg.MediaDir)
 
 	// Admin panel - static file serving with SPA routing
 	// Serve admin.html for /admin (exact path)

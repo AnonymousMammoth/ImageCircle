@@ -51,11 +51,11 @@ struct HomeView: View {
                     } else {
                         ForEach(filteredPosts) { post in
                             PostCardView(post: post) {
-                                Task { await loadFeed() }
+                                refreshTrigger = UUID()
                             } onCommentTapped: {
                                 selectedPostForComments = post
                             } onDelete: {
-                                Task { await loadFeed() }
+                                refreshTrigger = UUID()
                             }
                             .id(post.id)
                         }
@@ -70,7 +70,7 @@ struct HomeView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button(action: { Task { await loadFeed() } }) {
+                    Button(action: { refreshTrigger = UUID() }) {
                         Image(systemName: "arrow.clockwise")
                     }
                 }
@@ -224,7 +224,7 @@ struct CommentsSheetView: View {
                     }
                     .padding(.vertical, 4)
                     .contextMenu {
-                        if AuthManager.shared.currentUser?.id == comment.user.id {
+                        if AuthManager.shared.canDelete(contentUserID: comment.user.id) {
                             Button(role: .destructive) {
                                 deleteComment(comment)
                             } label: {

@@ -85,22 +85,21 @@ const composerComponent = {
 
             const actions = createEl('div', { className: 'composer-actions' });
             const postBtn = createEl('button', { className: 'btn btn-primary' });
-            postBtn.textContent = this.mediaType === 'video' ? 'Add to Story' : 'Post to Feed';
+            postBtn.textContent = this.mediaType === 'video' ? 'Post Video to Feed' : 'Post to Feed';
             postBtn.addEventListener('click', () => this.submitPhoto(captionInput.value, false));
 
             const storyBtn = createEl('button', { className: 'btn btn-secondary' });
             storyBtn.textContent = 'Add to Story';
-            storyBtn.style.display = this.mediaType === 'video' ? 'none' : 'block';
             storyBtn.addEventListener('click', () => this.submitPhoto(captionInput.value, true));
 
             actions.appendChild(postBtn);
-            if (this.mediaType === 'image') actions.appendChild(storyBtn);
+            actions.appendChild(storyBtn);
             wrap.appendChild(actions);
         } else {
             const placeholder = createEl('div', { className: 'empty-state' });
             placeholder.innerHTML = shell.icons.photo;
             const title = createEl('h3', { text: 'Choose a photo or video' });
-            const desc = createEl('p', { text: 'Select from your library or take a photo.' });
+            const desc = createEl('p', { text: 'Select from your library, or tap/hold the camera shutter to take a photo or record a video.' });
             placeholder.appendChild(title);
             placeholder.appendChild(desc);
 
@@ -114,7 +113,7 @@ const composerComponent = {
             libraryBtn.addEventListener('click', () => fileInput.click());
 
             const cameraBtn = createEl('button', { className: 'btn btn-secondary' });
-            cameraBtn.textContent = 'Take Photo';
+            cameraBtn.textContent = 'Take Photo or Video';
             cameraBtn.addEventListener('click', () => cameraComponent.open((file) => this.handleFileSelect(file)));
 
             actions.appendChild(fileInput);

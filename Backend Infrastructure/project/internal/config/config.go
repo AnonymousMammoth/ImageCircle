@@ -20,6 +20,7 @@ type Config struct {
 	PasswordCost  int
 	ServerBind    string
 	TrustProxy    bool
+	CookieSecure  bool
 }
 
 // Load reads configuration from environment variables with sensible defaults.
@@ -71,6 +72,15 @@ func Load() (*Config, error) {
 		trustProxy = b
 	}
 
+	cookieSecure := false
+	if v := os.Getenv("CIRCLE_COOKIE_SECURE"); v != "" {
+		b, err := strconv.ParseBool(v)
+		if err != nil {
+			return nil, fmt.Errorf("invalid CIRCLE_COOKIE_SECURE: %w", err)
+		}
+		cookieSecure = b
+	}
+
 	cfg := &Config{
 		Port:          port,
 		DataDir:       dataDir,
@@ -84,6 +94,7 @@ func Load() (*Config, error) {
 		PasswordCost:  passwordCost,
 		ServerBind:    "", // all interfaces
 		TrustProxy:    trustProxy,
+		CookieSecure:  cookieSecure,
 	}
 
 	return cfg, nil
