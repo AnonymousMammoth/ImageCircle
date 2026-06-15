@@ -20,8 +20,14 @@ struct StoryViewerView: View {
     @State private var viewedIds = Set<Int>()
     @State private var photoTimer: Timer?
     @State private var viewMarkingTask: Task<Void, Never>?
+    @State private var photoStartTime: Date?
+    @State private var photoElapsedBeforePause: CGFloat = 0
+    @State private var isImageLoaded = false
+    @State private var loadError: Error?
     
     @StateObject private var videoState = VideoPlayerState()
+    
+    private let storyDuration: CGFloat = 5.0
     
     init(stories: [Story], startIndex: Int, isPresented: Binding<Bool>) {
         self.stories = stories
@@ -49,19 +55,17 @@ struct StoryViewerView: View {
             viewMarkingTask?.cancel()
             videoState.reset()
         }
-        .onChange(of: currentIndex) {
+        .onChange(of: currentIndex) { _, _ in
             progress = 0
+            isImageLoaded = false
+            loadError = nil
             setupCurrentStory()
         }
         .onChange(of: isPaused) { _, paused in
             if paused {
-                invalidatePhotoTimer()
-                videoState.pause()
+                pauseCurrentStory()
             } else {
-                if let story = stories[safe: currentIndex], story.isImage {
-                    resumePhotoTimer()
-                }
-                videoState.play()
+                resumeCurrentStory()
             }
         }
         .onChange(of: videoState.didFinish) { _, finished in
@@ -75,21 +79,66 @@ struct StoryViewerView: View {
     @ViewBuilder
     private var content: some View {
         if let story = stories[safe: currentIndex] {
-            if story.isImage, let url = MediaURL.url(userID: story.user.id, filename: story.mediaFilename) {
-                KFImage(url)
-                    .resizable()
-                    .placeholder { Color.black }
-                    .aspectRatio(contentMode: .fit)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            if story.isImage {
+                if let url = story.resolvedMediaURL {
+                    KFImage(url)
+                        .resizable()
+                        .placeholder { loadingPlaceholder }
+                        .onSuccess { _ in
+                            Task { @MainActor in
+                                isImageLoaded = true
+                                if !isPaused { resumePhotoTimer() }
+                            }
+                        }
+                        .onFailure { error in
+                            Task { @MainActor in
+                                loadError = error
+                            }
+                        }
+                        .aspectRatio(contentMode: .fit)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    errorPlaceholder(message: "Invalid story URL")
+                }
             } else if story.isVideo {
-                VideoPlayer(player: videoState.player)
-                    .aspectRatio(contentMode: .fit)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                if let url = story.resolvedMediaURL {
+                    VideoPlayer(player: videoState.player)
+                        .id("story-\(story.id)-\(url.absoluteString)")
+                        .aspectRatio(contentMode: .fit)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .overlay(videoState.player == nil ? loadingPlaceholder : nil)
+                } else {
+                    errorPlaceholder(message: "Invalid story URL")
+                }
             } else {
-                Color.black
+                errorPlaceholder(message: "Unknown story type")
             }
         } else {
             Color.black
+        }
+    }
+    
+    private var loadingPlaceholder: some View {
+        ZStack {
+            Color.black
+            ProgressView()
+                .scaleEffect(1.5)
+                .tint(.white)
+        }
+    }
+    
+    private func errorPlaceholder(message: String) -> some View {
+        ZStack {
+            Color.black
+            VStack(spacing: 12) {
+                Image(systemName: "exclamationmark.triangle")
+                    .font(.largeTitle)
+                    .foregroundStyle(.white)
+                Text(message)
+                    .foregroundStyle(.white)
+                Button("Close") { isPresented = false }
+                    .buttonStyle(.borderedProminent)
+            }
         }
     }
     
@@ -106,11 +155,19 @@ struct StoryViewerView: View {
                 }
                 .frame(maxHeight: .infinity)
                 
-                if let story = stories[safe: currentIndex] {
-                    VStack {
+                VStack {
+                    HStack {
+                        closeButton
                         Spacer()
-                        HStack {
-                            placeholderAvatar(name: story.user.username)
+                    }
+                    .padding(.top, geo.safeAreaInsets.top + 8)
+                    .padding(.horizontal, 12)
+                    
+                    Spacer()
+                    
+                    if let story = stories[safe: currentIndex] {
+                        HStack(spacing: 10) {
+                            avatarView(for: story.user)
                                 .frame(width: 36, height: 36)
                             Text(story.user.username)
                                 .font(.subheadline.weight(.semibold))
@@ -122,6 +179,34 @@ struct StoryViewerView: View {
                         .padding(.bottom, geo.safeAreaInsets.bottom + 24)
                     }
                 }
+            }
+        }
+    }
+    
+    private var closeButton: some View {
+        Button(action: { isPresented = false }) {
+            Image(systemName: "xmark")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(.white)
+                .padding(10)
+                .background(Color.black.opacity(0.4))
+                .clipShape(Circle())
+        }
+        .accessibilityLabel("Close stories")
+    }
+    
+    private func avatarView(for user: User) -> some View {
+        Group {
+            if let filename = user.avatarFilename,
+               !filename.isEmpty,
+               let url = MediaURL.url(userID: user.id, filename: filename) {
+                KFImage(url)
+                    .resizable()
+                    .placeholder { placeholderAvatar(name: user.username) }
+                    .aspectRatio(contentMode: .fill)
+                    .clipShape(Circle())
+            } else {
+                placeholderAvatar(name: user.username)
             }
         }
     }
@@ -192,25 +277,47 @@ struct StoryViewerView: View {
         viewMarkingTask?.cancel()
         markViewed(story)
         
-        if story.isVideo, let url = MediaURL.url(userID: story.user.id, filename: story.mediaFilename) {
+        if story.isVideo, let url = story.resolvedMediaURL {
+            videoState.reset()
             videoState.load(url: url)
         } else {
             videoState.reset()
-            startPhotoTimer()
+            progress = 0
+            photoElapsedBeforePause = 0
+            photoStartTime = nil
+            // Don't start timer until image finishes loading (handled in onSuccess).
         }
         
         preloadStories()
     }
     
+    private func pauseCurrentStory() {
+        invalidatePhotoTimer()
+        videoState.pause()
+        if let startTime = photoStartTime {
+            photoElapsedBeforePause += CGFloat(Date().timeIntervalSince(startTime))
+            photoStartTime = nil
+        }
+    }
+    
+    private func resumeCurrentStory() {
+        if let story = stories[safe: currentIndex] {
+            if story.isVideo {
+                videoState.play()
+            } else if isImageLoaded {
+                resumePhotoTimer()
+            }
+        }
+    }
+    
     private func startPhotoTimer() {
         invalidatePhotoTimer()
-        progress = 0
-        let startTime = Date()
+        photoStartTime = Date()
         photoTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { timer in
             guard !isPaused else { return }
-            let elapsed = CGFloat(Date().timeIntervalSince(startTime))
-            progress = min(elapsed / 5.0, 1.0)
-            if elapsed >= 5.0 {
+            let elapsed = photoElapsedBeforePause + CGFloat(Date().timeIntervalSince(photoStartTime ?? Date()))
+            progress = min(elapsed / storyDuration, 1.0)
+            if elapsed >= storyDuration {
                 timer.invalidate()
                 photoTimer = nil
                 nextStory()
@@ -219,13 +326,16 @@ struct StoryViewerView: View {
     }
     
     private func resumePhotoTimer() {
-        // Re-start from current progress to keep simple behavior.
         startPhotoTimer()
     }
     
     private func invalidatePhotoTimer() {
         photoTimer?.invalidate()
         photoTimer = nil
+        if let startTime = photoStartTime {
+            photoElapsedBeforePause += CGFloat(Date().timeIntervalSince(startTime))
+            photoStartTime = nil
+        }
     }
     
     private func markViewed(_ story: Story) {
@@ -233,7 +343,7 @@ struct StoryViewerView: View {
         viewedIds.insert(story.id)
         viewMarkingTask = Task {
             do {
-                try await Task.sleep(nanoseconds: 1_000_000_000)
+                try await Task.sleep(nanoseconds: 300_000_000)
                 guard !Task.isCancelled,
                       currentIndex < stories.count,
                       stories[currentIndex].id == story.id else { return }
@@ -257,13 +367,18 @@ struct StoryViewerView: View {
         invalidatePhotoTimer()
         if currentIndex > 0 {
             currentIndex -= 1
+        } else {
+            // Restart current story from beginning.
+            progress = 0
+            photoElapsedBeforePause = 0
+            setupCurrentStory()
         }
     }
     
     private func preloadStories() {
         let end = min(currentIndex + 4, stories.count)
         let urls = stories[currentIndex..<end].compactMap { story in
-            MediaURL.url(userID: story.user.id, filename: story.mediaFilename)
+            story.resolvedMediaURL
         }
         ImagePrefetcher(urls: urls).start()
     }

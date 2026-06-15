@@ -15,8 +15,9 @@ struct HomeView: View {
     @State private var isLoading = false
     @State private var errorMessage: String?
     @State private var showError = false
-    @State private var selectedStoryIndex: Int?
+    @State private var selectedStory: Story?
     @State private var showStoryViewer = false
+    @State private var showCamera = false
     @State private var selectedPostForComments: Post?
     @State private var feedFilter: FeedFilter = .mixed
     
@@ -29,12 +30,15 @@ struct HomeView: View {
         NavigationStack {
             ScrollView {
                 LazyVStack(spacing: 0, pinnedViews: []) {
-                    StoriesTrayView(stories: stories) { story in
-                        if let index = stories.firstIndex(where: { $0.id == story.id }) {
-                            selectedStoryIndex = index
+                    StoriesTrayView(
+                        stories: stories,
+                        onStorySelected: { story in
+                            selectedStory = story
                             showStoryViewer = true
-                        }
-                    }
+                        },
+                        onAddStoryTapped: { showCamera = true },
+                        showAddButton: true
+                    )
                     
                     Divider()
                     
@@ -71,9 +75,18 @@ struct HomeView: View {
                 CommentsSheetView(post: post)
             }
             .fullScreenCover(isPresented: $showStoryViewer) {
-                if let index = selectedStoryIndex {
+                if let story = selectedStory,
+                   let index = stories.firstIndex(where: { $0.id == story.id }) {
                     StoryViewerView(stories: stories, startIndex: index, isPresented: $showStoryViewer)
                 }
+            }
+            .sheet(isPresented: $showCamera) {
+                CameraView(onPostCreated: {
+                    Task {
+                        await loadFeed()
+                        await loadStories()
+                    }
+                })
             }
             .alert("Error", isPresented: $showError) {
                 Button("OK", role: .cancel) {}

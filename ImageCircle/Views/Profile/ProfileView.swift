@@ -24,10 +24,6 @@ struct ProfileView: View {
     @State private var showLoadError = false
     @State private var avatarErrorMessage: String?
     @State private var showAvatarError = false
-    @State private var stories: [Story] = []
-    @State private var selectedStoryIndex: Int?
-    @State private var showStoryViewer = false
-    @State private var showCamera = false
     
     private var isCurrentUser: Bool {
         guard let user = user, let current = auth.currentUser else { return true }
@@ -48,7 +44,6 @@ struct ProfileView: View {
                 profileHeader
                 statsRow
                 filterPicker
-                storiesTray
                 Divider()
                 postGrid
             }
@@ -70,23 +65,10 @@ struct ProfileView: View {
         .sheet(item: $selectedPost) { post in
             ProfilePostDetailView(post: post)
         }
-        .fullScreenCover(isPresented: $showStoryViewer) {
-            if let index = selectedStoryIndex {
-                StoryViewerView(stories: stories, startIndex: index, isPresented: $showStoryViewer)
-            }
-        }
-        .sheet(isPresented: $showCamera) {
-            CameraView(onPostCreated: {
-                Task { await loadStories() }
-            })
-        }
         .task {
             await loadPosts()
-            await loadStories()
         }
-        .onChange(of: auth.currentUser) { _ in
-            Task { await loadPosts() }
-        }
+
         .alert("Error", isPresented: $showLoadError, presenting: loadErrorMessage) { _ in
             Button("OK") {}
         } message: { message in
@@ -162,47 +144,6 @@ struct ProfileView: View {
         }
     }
     
-    private var storiesTray: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 16) {
-                if isCurrentUser {
-                    addStoryButton
-                }
-                if !stories.isEmpty {
-                    StoriesTrayView(stories: stories) { story in
-                        if let index = stories.firstIndex(where: { $0.id == story.id }) {
-                            selectedStoryIndex = index
-                            showStoryViewer = true
-                        }
-                    }
-                }
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
-        }
-    }
-    
-    private var addStoryButton: some View {
-        Button(action: { showCamera = true }) {
-            VStack(spacing: 6) {
-                ZStack {
-                    Circle()
-                        .stroke(Color.pink, lineWidth: 3)
-                        .frame(width: 60, height: 60)
-                    Image(systemName: "plus")
-                        .font(.title3.weight(.semibold))
-                        .foregroundStyle(.pink)
-                }
-                Text("Add Story")
-                    .font(.caption)
-                    .foregroundStyle(.primary)
-                    .lineLimit(1)
-                    .frame(width: 64)
-            }
-        }
-        .buttonStyle(.plain)
-    }
-    
     private var filterPicker: some View {
         Picker("Filter", selection: $filter) {
             ForEach(FeedFilter.allCases) { filterCase in
@@ -228,12 +169,13 @@ struct ProfileView: View {
                                 print("[KFImage] Failed to load \(url): \(error)")
                             }
                             .aspectRatio(contentMode: .fill)
-                            .frame(maxWidth: .infinity, minHeight: 0)
-                            .aspectRatio(1, contentMode: .fill)
+                            .frame(maxWidth: .infinity)
+                            .aspectRatio(1, contentMode: .fit)
                             .clipped()
                     } else {
                         Color(.systemGray4)
-                            .aspectRatio(1, contentMode: .fill)
+                            .frame(maxWidth: .infinity)
+                            .aspectRatio(1, contentMode: .fit)
                     }
                 }
                 .buttonStyle(.plain)
@@ -255,7 +197,6 @@ struct ProfileView: View {
     private func textPostCell(for post: Post) -> some View {
         ZStack {
             Color(.systemGray6)
-                .aspectRatio(1, contentMode: .fill)
             
             VStack(spacing: 4) {
                 Image(systemName: "text.quote")
@@ -271,6 +212,8 @@ struct ProfileView: View {
                 }
             }
         }
+        .frame(maxWidth: .infinity)
+        .aspectRatio(1, contentMode: .fit)
     }
     
     private func loadPosts() async {
@@ -292,16 +235,6 @@ struct ProfileView: View {
                     showLoadError = true
                 }
             }
-        }
-    }
-    
-    private func loadStories() async {
-        guard let displayUser = displayUser else { return }
-        do {
-            stories = try await APIClient.shared.fetchStories(userID: displayUser.id)
-        } catch {
-            stories = []
-            // Non-fatal; don't alert the user for story load failures.
         }
     }
     

@@ -25,7 +25,7 @@ struct User: Codable, Identifiable, Hashable {
         case isAdmin
         case passwordChangeRequired
         case avatarFilename
-        case avatarURL
+        case avatarURL = "avatarUrl"
         case createdAt
     }
 }

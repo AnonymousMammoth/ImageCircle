@@ -70,7 +70,7 @@ func GetPostByID(db *sql.DB, id int64) (*Post, error) {
 	query := `
 		SELECT
 			p.id, p.user_id, p.caption, p.media_filename, p.thumbnail_filename, p.created_at,
-			u.id, u.username, u.display_name, u.password_hash, u.is_admin, u.password_change_required, u.created_at,
+			u.id, u.username, u.display_name, u.password_hash, u.is_admin, u.password_change_required, u.avatar_filename, u.created_at,
 			(SELECT COUNT(*) FROM likes WHERE post_id = p.id) AS like_count,
 			(SELECT COUNT(*) FROM comments WHERE post_id = p.id) AS comment_count
 		FROM posts p
@@ -86,7 +86,7 @@ func GetPostByIDWithUserContext(db *sql.DB, id, requestingUserID int64) (*Post, 
 	query := `
 		SELECT
 			p.id, p.user_id, p.caption, p.media_filename, p.thumbnail_filename, p.created_at,
-			u.id, u.username, u.display_name, u.password_hash, u.is_admin, u.password_change_required, u.created_at,
+			u.id, u.username, u.display_name, u.password_hash, u.is_admin, u.password_change_required, u.avatar_filename, u.created_at,
 			(SELECT COUNT(*) FROM likes WHERE post_id = p.id) AS like_count,
 			(SELECT COUNT(*) FROM comments WHERE post_id = p.id) AS comment_count,
 			EXISTS(SELECT 1 FROM likes WHERE post_id = p.id AND user_id = ?) AS has_liked
@@ -103,7 +103,7 @@ func GetFeed(db *sql.DB, requestingUserID int64) ([]*Post, error) {
 	query := `
 		SELECT
 			p.id, p.user_id, p.caption, p.media_filename, p.thumbnail_filename, p.created_at,
-			u.id, u.username, u.display_name, u.password_hash, u.is_admin, u.password_change_required, u.created_at,
+			u.id, u.username, u.display_name, u.password_hash, u.is_admin, u.password_change_required, u.avatar_filename, u.created_at,
 			(SELECT COUNT(*) FROM likes WHERE post_id = p.id) AS like_count,
 			(SELECT COUNT(*) FROM comments WHERE post_id = p.id) AS comment_count,
 			EXISTS(SELECT 1 FROM likes WHERE post_id = p.id AND user_id = ?) AS has_liked
@@ -125,7 +125,7 @@ func GetPostsByUser(db *sql.DB, userID, requestingUserID int64) ([]*Post, error)
 	query := `
 		SELECT
 			p.id, p.user_id, p.caption, p.media_filename, p.thumbnail_filename, p.created_at,
-			u.id, u.username, u.display_name, u.password_hash, u.is_admin, u.password_change_required, u.created_at,
+			u.id, u.username, u.display_name, u.password_hash, u.is_admin, u.password_change_required, u.avatar_filename, u.created_at,
 			(SELECT COUNT(*) FROM likes WHERE post_id = p.id) AS like_count,
 			(SELECT COUNT(*) FROM comments WHERE post_id = p.id) AS comment_count,
 			EXISTS(SELECT 1 FROM likes WHERE post_id = p.id AND user_id = ?) AS has_liked
@@ -179,7 +179,7 @@ func scanPost(row *sql.Row, requestingUserID int64) (*Post, error) {
 	var u User
 	var isAdminInt int
 	var passwordChangeRequiredInt int
-	var mediaFilename, thumbnailFilename sql.NullString
+	var mediaFilename, thumbnailFilename, avatarFilename sql.NullString
 
 	var scanTargets = []interface{}{
 		&p.ID,
@@ -194,6 +194,7 @@ func scanPost(row *sql.Row, requestingUserID int64) (*Post, error) {
 		&u.PasswordHash,
 		&isAdminInt,
 		&passwordChangeRequiredInt,
+		&avatarFilename,
 		&u.CreatedAt,
 		&p.LikeCount,
 		&p.CommentCount,
@@ -213,6 +214,8 @@ func scanPost(row *sql.Row, requestingUserID int64) (*Post, error) {
 
 	u.IsAdmin = isAdminInt != 0
 	u.PasswordChangeRequired = passwordChangeRequiredInt != 0
+	u.AvatarFilename = avatarFilename.String
+	u.AvatarURL = BuildAvatarURL(u.ID, u.AvatarFilename)
 	p.User = &u
 
 	p.MediaFilename = mediaFilename.String
@@ -232,7 +235,7 @@ func scanPosts(rows *sql.Rows, requestingUserID int64) ([]*Post, error) {
 		var u User
 		var isAdminInt int
 		var passwordChangeRequiredInt int
-		var mediaFilename, thumbnailFilename sql.NullString
+		var mediaFilename, thumbnailFilename, avatarFilename sql.NullString
 
 		var scanTargets = []interface{}{
 			&p.ID,
@@ -247,6 +250,7 @@ func scanPosts(rows *sql.Rows, requestingUserID int64) ([]*Post, error) {
 			&u.PasswordHash,
 			&isAdminInt,
 			&passwordChangeRequiredInt,
+			&avatarFilename,
 			&u.CreatedAt,
 			&p.LikeCount,
 			&p.CommentCount,
@@ -263,6 +267,8 @@ func scanPosts(rows *sql.Rows, requestingUserID int64) ([]*Post, error) {
 
 		u.IsAdmin = isAdminInt != 0
 		u.PasswordChangeRequired = passwordChangeRequiredInt != 0
+		u.AvatarFilename = avatarFilename.String
+		u.AvatarURL = BuildAvatarURL(u.ID, u.AvatarFilename)
 		p.User = &u
 
 		p.MediaFilename = mediaFilename.String

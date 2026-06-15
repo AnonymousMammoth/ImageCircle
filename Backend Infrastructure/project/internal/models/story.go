@@ -65,7 +65,8 @@ func GetActiveStories(db *sql.DB, requestingUserID int64) ([]*Story, error) {
 	}
 	defer rows.Close()
 
-	return scanStories(rows, requestingUserID)
+	// All returned rows are unviewed because of the NOT EXISTS filter.
+	return scanStories(rows, 0)
 }
 
 // GetStoriesByUser retrieves active stories for a specific user.
@@ -73,7 +74,7 @@ func GetStoriesByUser(db *sql.DB, userID, requestingUserID int64) ([]*Story, err
 	query := `
 		SELECT
 			s.id, s.user_id, s.media_filename, s.thumbnail_filename, s.media_type, s.created_at, s.expires_at,
-			u.id, u.username, u.display_name, u.password_hash, u.is_admin, u.password_change_required, u.created_at,
+			u.id, u.username, u.display_name, u.password_hash, u.is_admin, u.password_change_required, u.avatar_filename, u.created_at,
 			(SELECT COUNT(*) FROM story_views WHERE story_id = s.id) AS view_count,
 			EXISTS(SELECT 1 FROM story_views WHERE story_id = s.id AND user_id = ?) AS viewed
 		FROM stories s
@@ -107,7 +108,7 @@ func GetStoryByID(db *sql.DB, id int64) (*Story, error) {
 	query := `
 		SELECT
 			s.id, s.user_id, s.media_filename, s.thumbnail_filename, s.media_type, s.created_at, s.expires_at,
-			u.id, u.username, u.display_name, u.password_hash, u.is_admin, u.password_change_required, u.created_at,
+			u.id, u.username, u.display_name, u.password_hash, u.is_admin, u.password_change_required, u.avatar_filename, u.created_at,
 			(SELECT COUNT(*) FROM story_views WHERE story_id = s.id) AS view_count
 		FROM stories s
 		JOIN users u ON s.user_id = u.id
@@ -122,7 +123,7 @@ func GetStoryByIDWithUserContext(db *sql.DB, id, requestingUserID int64) (*Story
 	query := `
 		SELECT
 			s.id, s.user_id, s.media_filename, s.thumbnail_filename, s.media_type, s.created_at, s.expires_at,
-			u.id, u.username, u.display_name, u.password_hash, u.is_admin, u.password_change_required, u.created_at,
+			u.id, u.username, u.display_name, u.password_hash, u.is_admin, u.password_change_required, u.avatar_filename, u.created_at,
 			(SELECT COUNT(*) FROM story_views WHERE story_id = s.id) AS view_count,
 			EXISTS(SELECT 1 FROM story_views WHERE story_id = s.id AND user_id = ?) AS viewed
 		FROM stories s
@@ -170,7 +171,7 @@ func GetExpiredStories(db *sql.DB) ([]*Story, error) {
 	query := `
 		SELECT
 			s.id, s.user_id, s.media_filename, s.thumbnail_filename, s.media_type, s.created_at, s.expires_at,
-			u.id, u.username, u.display_name, u.password_hash, u.is_admin, u.password_change_required, u.created_at,
+			u.id, u.username, u.display_name, u.password_hash, u.is_admin, u.password_change_required, u.avatar_filename, u.created_at,
 			(SELECT COUNT(*) FROM story_views WHERE story_id = s.id) AS view_count
 		FROM stories s
 		JOIN users u ON s.user_id = u.id
@@ -203,6 +204,7 @@ func scanStory(row *sql.Row, requestingUserID int64) (*Story, error) {
 	var u User
 	var isAdminInt int
 	var passwordChangeRequiredInt int
+	var avatarFilename sql.NullString
 
 	scanTargets := []interface{}{
 		&s.ID,
@@ -218,6 +220,7 @@ func scanStory(row *sql.Row, requestingUserID int64) (*Story, error) {
 		&u.PasswordHash,
 		&isAdminInt,
 		&passwordChangeRequiredInt,
+		&avatarFilename,
 		&u.CreatedAt,
 		&s.ViewCount,
 	}
@@ -236,6 +239,8 @@ func scanStory(row *sql.Row, requestingUserID int64) (*Story, error) {
 
 	u.IsAdmin = isAdminInt != 0
 	u.PasswordChangeRequired = passwordChangeRequiredInt != 0
+	u.AvatarFilename = avatarFilename.String
+	u.AvatarURL = BuildAvatarURL(u.ID, u.AvatarFilename)
 	s.User = &u
 
 	s.MediaURL = BuildMediaURL(s.UserID, s.MediaFilename)
@@ -255,6 +260,7 @@ func scanStories(rows *sql.Rows, requestingUserID int64) ([]*Story, error) {
 		var u User
 		var isAdminInt int
 		var passwordChangeRequiredInt int
+		var avatarFilename sql.NullString
 
 		scanTargets := []interface{}{
 			&s.ID,
@@ -270,6 +276,7 @@ func scanStories(rows *sql.Rows, requestingUserID int64) ([]*Story, error) {
 			&u.PasswordHash,
 			&isAdminInt,
 			&passwordChangeRequiredInt,
+			&avatarFilename,
 			&u.CreatedAt,
 			&s.ViewCount,
 		}
@@ -285,6 +292,8 @@ func scanStories(rows *sql.Rows, requestingUserID int64) ([]*Story, error) {
 
 		u.IsAdmin = isAdminInt != 0
 		u.PasswordChangeRequired = passwordChangeRequiredInt != 0
+		u.AvatarFilename = avatarFilename.String
+		u.AvatarURL = BuildAvatarURL(u.ID, u.AvatarFilename)
 		s.User = &u
 
 		s.MediaURL = BuildMediaURL(s.UserID, s.MediaFilename)

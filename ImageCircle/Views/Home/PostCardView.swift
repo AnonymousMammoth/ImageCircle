@@ -35,6 +35,7 @@ struct PostCardView: View {
             }
             actionBar
             infoSection
+            Divider()
         }
         .background(Color(.systemBackground))
         .onChange(of: post) { _, newPost in
@@ -43,17 +44,23 @@ struct PostCardView: View {
     }
     
     private var header: some View {
-        HStack(spacing: 12) {
-            placeholderAvatar(name: postState.user.username)
-                .frame(width: 32, height: 32)
+        HStack(alignment: .top, spacing: 12) {
+            avatarView(for: postState.user)
+                .frame(width: 40, height: 40)
+                .clipShape(Circle())
             
-            Text(postState.user.username)
-                .font(.headline)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(postState.user.displayName)
+                    .font(.subheadline.weight(.semibold))
+                Text("@\(postState.user.username)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
             
             Spacer()
             
             Text(postState.createdAt.relativeTimeFromISO())
-                .font(.footnote)
+                .font(.caption)
                 .foregroundStyle(.secondary)
         }
         .padding(.horizontal, 12)
@@ -99,7 +106,7 @@ struct PostCardView: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 12)
-                    .padding(.vertical, 10)
+                    .padding(.vertical, 4)
                     .contentShape(Rectangle())
                     .onTapGesture(count: 2) {
                         toggleLike()
@@ -159,6 +166,21 @@ struct PostCardView: View {
         }
         .padding(.horizontal, 12)
         .padding(.bottom, 12)
+    }
+    
+    private func avatarView(for user: User) -> some View {
+        Group {
+            if let filename = user.avatarFilename,
+               !filename.isEmpty,
+               let url = MediaURL.url(userID: user.id, filename: filename) {
+                KFImage(url)
+                    .resizable()
+                    .placeholder { placeholderAvatar(name: user.username) }
+                    .aspectRatio(contentMode: .fill)
+            } else {
+                placeholderAvatar(name: user.username)
+            }
+        }
     }
     
     private func toggleLike() {

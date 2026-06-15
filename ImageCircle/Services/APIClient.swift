@@ -566,11 +566,7 @@ private final class UploadDelegate: NSObject, URLSessionTaskDelegate, URLSession
     func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
         lock.lock()
         responseData[dataTask.taskIdentifier]?.append(data)
-        let hasCompletion = completions[dataTask.taskIdentifier] != nil
         lock.unlock()
-        if !hasCompletion {
-            dataTask.cancel()
-        }
     }
     
     func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
