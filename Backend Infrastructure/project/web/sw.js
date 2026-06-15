@@ -1,4 +1,4 @@
-const CACHE_NAME = 'imagecircle-shell-v1';
+const CACHE_NAME = 'imagecircle-shell-v2';
 const SHELL_ASSETS = [
   '/',
   '/app.css',
@@ -34,7 +34,15 @@ self.addEventListener('install', (event) => {
 });
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil(self.clients.claim());
+  event.waitUntil(
+    caches.keys().then((names) =>
+      Promise.all(
+        names
+          .filter((name) => name !== CACHE_NAME)
+          .map((name) => caches.delete(name))
+      )
+    ).then(() => self.clients.claim())
+  );
 });
 
 self.addEventListener('fetch', (event) => {

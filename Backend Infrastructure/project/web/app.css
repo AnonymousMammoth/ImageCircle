@@ -510,13 +510,16 @@ label {
 }
 
 .post-text-content {
-    padding: 16px 12px;
-    font-size: 16px;
-    line-height: 1.45;
-    min-height: 120px;
-    display: flex;
-    align-items: center;
-    background: var(--bg-secondary);
+    padding: 8px 12px;
+    font-size: 15px;
+    line-height: 1.35;
+    color: var(--text);
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+.post-text-content p {
+    margin: 0;
 }
 
 .post-actions {

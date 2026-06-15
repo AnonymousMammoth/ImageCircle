@@ -35,11 +35,12 @@ type UpdateMeRequest struct {
 	DisplayName string `json:"display_name"`
 }
 
-// checkOwnership returns true if the requesting user owns the content or is an admin.
+// checkOwnership returns true only if the requesting user owns the content.
+// Admin deletion/management happens through the dedicated admin moderation
+// endpoints so admins do not see delete controls in the main UI.
 func checkOwnership(c *gin.Context, contentUserID int64) bool {
 	userID := c.GetInt64("user_id")
-	isAdmin := c.GetBool("is_admin")
-	return userID == contentUserID || isAdmin
+	return userID == contentUserID
 }
 
 // CreateUser creates a new user (admin only).

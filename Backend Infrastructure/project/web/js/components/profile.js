@@ -46,9 +46,26 @@ const profileComponent = {
                 this.posts = [];
             }
         } else {
-            this.user = state.user;
+            // Always refresh the current user so avatar/display-name changes made
+            // in the native app show up immediately in the web UI.
             try {
-                this.posts = await fetchUserPosts(state.user.id);
+                const me = await fetchMe();
+                if (!token.isActive()) return;
+                if (me && me.id) {
+                    state.updateUser(me);
+                    this.user = me;
+                    if (shell && shell.updateDesktopSidebars) {
+                        shell.updateDesktopSidebars();
+                    }
+                } else {
+                    this.user = state.user;
+                }
+            } catch (err) {
+                if (!token.isActive()) return;
+                this.user = state.user;
+            }
+            try {
+                this.posts = await fetchUserPosts(this.user.id);
             } catch (err) {
                 if (!token.isActive()) return;
                 showAlert(err.message);
