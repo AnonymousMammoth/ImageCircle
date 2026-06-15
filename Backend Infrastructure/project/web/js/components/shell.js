@@ -36,11 +36,22 @@ const shell = {
         quote: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 01.865-.501 48.172 48.172 0 003.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.015-7.53.163C2.694 3.333 1.5 4.726 1.5 6.328v.83c0 1.39.6 2.7 1.55 3.596" /></svg>'
     },
 
+    getTabs() {
+        return [
+            { id: 'home', label: 'Home', icon: 'home', activeIcon: 'homeFill' },
+            { id: 'search', label: 'Search', icon: 'search', activeIcon: 'search' },
+            { id: 'create', label: 'Create', icon: 'create', activeIcon: 'create' },
+            { id: 'notifications', label: 'Notifications', icon: 'bell', activeIcon: 'bellFill' },
+            { id: 'profile', label: 'Profile', icon: 'profile', activeIcon: 'profileFill' }
+        ];
+    },
+
     render() {
         const app = document.getElementById('app');
 
         if (this.root && this.root.parentNode === app) {
             this.updateActiveTab();
+            this.updateDesktopSidebars();
             this.handleRoute();
             return;
         }
@@ -48,30 +59,27 @@ const shell = {
         clearEl(app);
 
         this.root = createEl('div', { className: 'screen' });
-        const content = createEl('div', { id: 'main-content', className: 'screen-scroll' });
+
+        const leftSidebar = createEl('aside', { id: 'sidebar-left', className: 'sidebar-left hidden' });
+        leftSidebar.appendChild(this.renderSidebarNav());
+        this.root.appendChild(leftSidebar);
+
+        const content = createEl('main', { id: 'main-content', className: 'screen-scroll' });
         this.root.appendChild(content);
 
-        const tabBar = createEl('nav', { id: 'tab-bar', className: 'tab-bar' });
-        const tabs = [
-            { id: 'home', label: 'Home', icon: 'home', activeIcon: 'homeFill' },
-            { id: 'search', label: 'Search', icon: 'search', activeIcon: 'search' },
-            { id: 'create', label: 'Create', icon: 'create', activeIcon: 'create' },
-            { id: 'notifications', label: 'Alerts', icon: 'bell', activeIcon: 'bellFill' },
-            { id: 'profile', label: 'Profile', icon: 'profile', activeIcon: 'profileFill' }
-        ];
+        const rightSidebar = createEl('aside', { id: 'sidebar-right', className: 'sidebar-right hidden' });
+        rightSidebar.appendChild(this.renderSidebarRight());
+        this.root.appendChild(rightSidebar);
 
-        tabs.forEach(tab => {
+        const tabBar = createEl('nav', { id: 'tab-bar', className: 'tab-bar' });
+        this.getTabs().forEach(tab => {
             const active = this.getActiveTab() === tab.id;
             const btn = createEl('button', {
                 className: 'tab-item' + (active ? ' active' : ''),
                 'data-tab': tab.id
             });
             btn.innerHTML = this.icons[active ? tab.activeIcon : tab.icon] + '<span>' + escapeHtml(tab.label) + '</span>';
-            btn.addEventListener('click', () => {
-                if (tab.id === 'home') router.navigate('/');
-                else if (tab.id === 'profile') router.navigate('/profile');
-                else router.navigate('/' + tab.id);
-            });
+            btn.addEventListener('click', () => this.navigateTab(tab.id));
             tabBar.appendChild(btn);
         });
 
@@ -80,6 +88,70 @@ const shell = {
 
         // The initial route will be handled by the router's route event.
         this.updateActiveTab();
+    },
+
+    renderSidebarNav() {
+        const wrap = createEl('div', { className: 'sidebar-nav' });
+        const brand = createEl('div', { className: 'sidebar-brand' });
+        brand.innerHTML = this.icons.profileFill + '<span>ImageCircle</span>';
+        wrap.appendChild(brand);
+
+        const nav = createEl('nav', { className: 'sidebar-menu' });
+        this.getTabs().forEach(tab => {
+            const active = this.getActiveTab() === tab.id;
+            const btn = createEl('button', {
+                className: 'sidebar-item' + (active ? ' active' : ''),
+                'data-tab': tab.id
+            });
+            btn.innerHTML = this.icons[active ? tab.activeIcon : tab.icon] + '<span>' + escapeHtml(tab.label) + '</span>';
+            btn.addEventListener('click', () => this.navigateTab(tab.id));
+            nav.appendChild(btn);
+        });
+        wrap.appendChild(nav);
+        return wrap;
+    },
+
+    renderSidebarRight() {
+        const wrap = createEl('div', { className: 'sidebar-right-content' });
+        const title = createEl('h3', { text: 'Your account' });
+        wrap.appendChild(title);
+
+        const userCard = createEl('button', { className: 'sidebar-user-card' });
+        userCard.appendChild(renderAvatar(state.user, 48, { eager: true }));
+        const userInfo = createEl('div', { className: 'sidebar-user-info' });
+        const displayName = state.user ? (state.user.display_name || state.user.username) : 'Guest';
+        const username = state.user ? ('@' + state.user.username) : '';
+        userInfo.appendChild(createEl('div', { className: 'name', text: displayName }));
+        userInfo.appendChild(createEl('div', { className: 'username', text: username }));
+        userCard.appendChild(userInfo);
+        userCard.addEventListener('click', () => router.navigate('/profile'));
+        wrap.appendChild(userCard);
+
+        const hint = createEl('p', { className: 'sidebar-hint', text: 'Tip: tap your profile to update your avatar.' });
+        wrap.appendChild(hint);
+        return wrap;
+    },
+
+    updateDesktopSidebars() {
+        const left = document.getElementById('sidebar-left');
+        if (left) {
+            const nav = left.querySelector('.sidebar-menu');
+            if (nav) {
+                const newNav = this.renderSidebarNav().querySelector('.sidebar-menu');
+                nav.replaceWith(newNav);
+            }
+        }
+        const right = document.getElementById('sidebar-right');
+        if (right) {
+            const content = right.querySelector('.sidebar-right-content');
+            if (content) content.replaceWith(this.renderSidebarRight());
+        }
+    },
+
+    navigateTab(tabId) {
+        if (tabId === 'home') router.navigate('/');
+        else if (tabId === 'profile') router.navigate('/profile');
+        else router.navigate('/' + tabId);
     },
 
     getActiveTab() {
@@ -96,10 +168,15 @@ const shell = {
         const path = router.getPath();
         const content = document.getElementById('main-content');
         const tabBar = document.getElementById('tab-bar');
+        const leftSidebar = document.getElementById('sidebar-left');
+        const rightSidebar = document.getElementById('sidebar-right');
         clearEl(content);
 
-        const hideTabBar = path === '/login' || path === '/setup' || path === '/force-password-change';
-        if (tabBar) tabBar.classList.toggle('hidden', hideTabBar);
+        const hideChrome = path === '/login' || path === '/setup' || path === '/force-password-change';
+        if (this.root) this.root.classList.toggle('no-sidebars', hideChrome);
+        if (tabBar) tabBar.classList.toggle('hidden', hideChrome);
+        if (leftSidebar) leftSidebar.classList.toggle('hidden', hideChrome);
+        if (rightSidebar) rightSidebar.classList.toggle('hidden', hideChrome);
 
         if (path === '/login' || path === '/setup') {
             loginComponent.render(content);
@@ -135,11 +212,21 @@ const shell = {
 
     updateActiveTab() {
         const active = this.getActiveTab();
+        const filledIcons = { home: 'homeFill', profile: 'profileFill', notifications: 'bellFill' };
+
         $$('.tab-item', this.root).forEach(btn => {
             const tabId = btn.getAttribute('data-tab');
             const isActive = tabId === active;
             btn.classList.toggle('active', isActive);
-            const filledIcons = { home: 'homeFill', profile: 'profileFill', notifications: 'bellFill' };
+            const iconKey = isActive && filledIcons[tabId] ? filledIcons[tabId] : tabId;
+            const label = btn.querySelector('span').textContent;
+            btn.innerHTML = this.icons[iconKey] + '<span>' + escapeHtml(label) + '</span>';
+        });
+
+        $$('.sidebar-item', this.root).forEach(btn => {
+            const tabId = btn.getAttribute('data-tab');
+            const isActive = tabId === active;
+            btn.classList.toggle('active', isActive);
             const iconKey = isActive && filledIcons[tabId] ? filledIcons[tabId] : tabId;
             const label = btn.querySelector('span').textContent;
             btn.innerHTML = this.icons[iconKey] + '<span>' + escapeHtml(label) + '</span>';
@@ -154,5 +241,6 @@ const shell = {
 window.addEventListener('circle:route', () => {
     if (!shell.root) return;
     shell.updateActiveTab();
+    shell.updateDesktopSidebars();
     shell.handleRoute();
 });

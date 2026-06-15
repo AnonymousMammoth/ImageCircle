@@ -439,6 +439,74 @@ func (h *UserHandler) GetUserStories(c *gin.Context) {
 	utils.RespondJSON(c, http.StatusOK, gin.H{"stories": stories})
 }
 
+// BlockUser blocks a user. Idempotent: returns 200 if already blocked.
+func (h *UserHandler) BlockUser(c *gin.Context) {
+	blockerID := c.GetInt64("user_id")
+
+	blockedID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		utils.RespondError(c, http.StatusBadRequest, "invalid id")
+		return
+	}
+
+	if blockedID == blockerID {
+		utils.RespondError(c, http.StatusBadRequest, "cannot block yourself")
+		return
+	}
+
+	alreadyBlocked, err := models.IsBlocked(h.DB, blockerID, blockedID)
+	if err != nil {
+		utils.RespondError(c, http.StatusInternalServerError, "failed to check block status")
+		return
+	}
+	if alreadyBlocked {
+		utils.RespondJSON(c, http.StatusOK, gin.H{"blocked": true})
+		return
+	}
+
+	if err := models.CreateBlock(h.DB, blockerID, blockedID); err != nil {
+		if err == sql.ErrNoRows {
+			utils.RespondError(c, http.StatusNotFound, "user not found")
+			return
+		}
+		utils.RespondError(c, http.StatusInternalServerError, "failed to block user")
+		return
+	}
+
+	utils.RespondJSON(c, http.StatusOK, gin.H{"blocked": true})
+}
+
+// UnblockUser unblocks a user. Idempotent: returns 200 even if not blocked.
+func (h *UserHandler) UnblockUser(c *gin.Context) {
+	blockerID := c.GetInt64("user_id")
+
+	blockedID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		utils.RespondError(c, http.StatusBadRequest, "invalid id")
+		return
+	}
+
+	if err := models.DeleteBlock(h.DB, blockerID, blockedID); err != nil {
+		utils.RespondError(c, http.StatusInternalServerError, "failed to unblock user")
+		return
+	}
+
+	utils.RespondJSON(c, http.StatusOK, gin.H{"blocked": false})
+}
+
+// ListBlockedUsers returns the user IDs blocked by the requesting user.
+func (h *UserHandler) ListBlockedUsers(c *gin.Context) {
+	userID := c.GetInt64("user_id")
+
+	blockedIDs, err := models.GetBlockedUserIDs(h.DB, userID)
+	if err != nil {
+		utils.RespondError(c, http.StatusInternalServerError, "failed to retrieve blocked users")
+		return
+	}
+
+	utils.RespondJSON(c, http.StatusOK, gin.H{"blocked_user_ids": blockedIDs})
+}
+
 // GetStats returns platform statistics (admin only).
 func (h *UserHandler) GetStats(c *gin.Context) {
 	if !c.GetBool("is_admin") {

@@ -16,6 +16,8 @@ const storyViewerComponent = {
     startY: 0,
     currentMedia: null,
     isDeleting: false,
+    isMuted: true,
+    preferUnmuted: false,
 
     open(groups, groupIndex) {
         if (!groups || !groups.length) return;
@@ -54,6 +56,19 @@ const storyViewerComponent = {
         topBar.appendChild(userInfo);
 
         const right = createEl('div', { className: 'story-top-bar-right' });
+
+        const unmuteBtn = createEl('button', {
+            id: 'story-unmute-btn',
+            className: 'story-unmute-btn',
+            title: 'Unmute'
+        });
+        unmuteBtn.innerHTML = '🔇';
+        unmuteBtn.addEventListener('click', (e) => {
+            stopEvent(e);
+            this.toggleMute();
+        });
+        right.appendChild(unmuteBtn);
+
         const closeBtn = createEl('button', { className: 'story-close-btn' });
         closeBtn.innerHTML = shell.icons.close;
         closeBtn.addEventListener('click', () => this.close());
@@ -226,6 +241,30 @@ const storyViewerComponent = {
         if (menuBtn) {
             menuBtn.style.display = canManageContent(story.user.id, state.user) ? 'flex' : 'none';
         }
+        this.updateMuteButton();
+    },
+
+    updateMuteButton() {
+        const btn = document.getElementById('story-unmute-btn');
+        if (!btn) return;
+        const story = this.currentStory();
+        const isVideo = story && (story.media_type === 'video' || story.mediaType === 'video');
+        if (!isVideo) {
+            btn.style.display = 'none';
+            return;
+        }
+        btn.style.display = 'flex';
+        btn.innerHTML = this.isMuted ? '🔇' : '🔊';
+        btn.title = this.isMuted ? 'Unmute' : 'Mute';
+    },
+
+    toggleMute() {
+        if (this.currentMedia && this.currentMedia.tagName === 'VIDEO') {
+            this.currentMedia.muted = !this.currentMedia.muted;
+            this.isMuted = this.currentMedia.muted;
+            this.preferUnmuted = !this.isMuted;
+        }
+        this.updateMuteButton();
     },
 
     renderStoryMedia() {
@@ -244,11 +283,13 @@ const storyViewerComponent = {
         });
 
         if (isVideo) {
+            const startMuted = !this.preferUnmuted;
             const video = createEl('video', {
                 src: url,
                 autoplay: true,
                 playsinline: true,
-                muted: false,
+                muted: startMuted,
+                volume: 1,
                 style: 'max-width:100%;max-height:100%;object-fit:contain;'
             });
             video.addEventListener('ended', () => this.next());
@@ -257,7 +298,26 @@ const storyViewerComponent = {
                 mediaWrap.innerHTML = '<p style="color:white">Could not load video</p>';
             });
             this.currentMedia = video;
+            this.isMuted = startMuted;
             mediaWrap.appendChild(video);
+
+            // If the user has previously unmuted, try to start unmuted.
+            // Browsers may still block unmuted autoplay until a user gesture
+            // has been registered for the tab; fall back to muted with the
+            // unmute button if so.
+            const tryUnmute = () => {
+                if (!this.currentMedia || this.currentMedia.tagName !== 'VIDEO') return;
+                if (this.preferUnmuted) {
+                    this.currentMedia.muted = false;
+                }
+                this.isMuted = this.currentMedia.muted;
+                this.updateMuteButton();
+            };
+            video.play().then(tryUnmute).catch(() => {
+                // Autoplay blocked; remain muted until user gestures.
+                this.isMuted = true;
+                this.updateMuteButton();
+            });
         } else {
             const img = createEl('img', {
                 src: url,
@@ -400,5 +460,6 @@ const storyViewerComponent = {
         if (overlay) overlay.remove();
         this.currentMedia = null;
         this.isDeleting = false;
+        this.preferUnmuted = false;
     }
 };

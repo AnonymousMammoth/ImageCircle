@@ -33,6 +33,12 @@ Login, setup, refresh, and change-password set the `circle_session` cookie (`Sam
 | `POST` | `/api/users/:id/reset-password` | Yes | — | `200` `{ temporary_password }` |
 | `POST` | `/api/users/:id/toggle-admin` | Yes | — | `200` User |
 | `GET` | `/api/users/stats` | Yes | — | `200` `{ total_users, total_posts, active_stories }` |
+| `POST` | `/api/users/:id/block` | No | — | `200` `{ blocked: true }` |
+| `DELETE` | `/api/users/:id/block` | No | — | `200` `{ blocked: false }` |
+| `GET` | `/api/users/me/blocked` | No | — | `200` `{ blocked_user_ids: [...] }` |
+| `POST` | `/api/reports` | No | JSON `{ target_type, target_id, reason }` | `201` `{ id, status, created_at }` |
+| `GET` | `/api/admin/reports` | Yes | Query `status` (`open`, `resolved`, `all`; default `open`) | `200` `{ reports: [...] }` |
+| `PUT` | `/api/admin/reports/:id` | Yes | JSON `{ status, resolver_note? }` | `200` Report |
 | `GET` | `/api/posts` | No | — | `200` `{ posts: [...] }` |
 | `GET` | `/api/posts/:id` | No | — | `200` Post |
 | `POST` | `/api/posts` | No | JSON `{ caption }` **or** `multipart/form-data` (`caption`, `media`, optional `thumbnail`) | `201` Post |
@@ -272,6 +278,68 @@ Response:
 ```
 
 Notifications are likes and comments on posts owned by the current user, ordered newest first.
+
+### Reports
+
+```http
+POST /api/reports
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{ "target_type": "post", "target_id": 42, "reason": "Inappropriate content" }
+```
+
+`target_type` must be `"post"`, `"story"`, or `"user"`. A user cannot report themselves. Response:
+
+```json
+{ "id": 7, "status": "open", "created_at": "2026-06-15T10:00:00Z" }
+```
+
+Admins list and resolve reports:
+
+```http
+GET /api/admin/reports?status=open
+Authorization: Bearer <token>
+```
+
+```http
+PUT /api/admin/reports/7
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{ "status": "resolved", "resolver_note": "Removed the post" }
+```
+
+The report response includes the reporter, target user (when `target_type` is `user`), and target post/story preview fields when applicable.
+
+### Blocks
+
+```http
+POST /api/users/5/block
+Authorization: Bearer <token>
+```
+
+Response: `200 { "blocked": true }`. Blocking is idempotent; blocking an already-blocked user returns `200`. A user cannot block themselves.
+
+```http
+DELETE /api/users/5/block
+Authorization: Bearer <token>
+```
+
+Response: `200 { "blocked": false }`. Unblocking is idempotent.
+
+```http
+GET /api/users/me/blocked
+Authorization: Bearer <token>
+```
+
+Response:
+
+```json
+{ "blocked_user_ids": [5, 12] }
+```
+
+Content returned by `GET /api/posts`, `GET /api/stories`, `GET /api/users/:id/posts`, and `GET /api/posts/:id/comments` excludes items authored by users the requesting user has blocked.
 
 ## Text-Only Post Creation
 

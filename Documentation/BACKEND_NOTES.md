@@ -46,12 +46,13 @@ Middleware is applied in this exact order in `main.go`:
 | Handler | File | Endpoints | Notes |
 |---------|------|-----------|-------|
 | `AuthHandler` | `internal/handlers/auth.go` | `/api/admin/setup`, `/api/auth/login`, `/api/auth/refresh`, `/api/auth/change-password`, `/api/auth/logout` | `setup` creates the first admin when no users exist. Login creates a JWT + session row **and sets the `circle_session` cookie**. Logout clears the cookie and deletes the session row. `refresh` and `change-password` also set a fresh cookie. Change password validates strength, clears `password_change_required`, invalidates all other sessions, and returns a fresh token. |
-| `UserHandler` | `internal/handlers/users.go` | `/api/users/me`, `/api/users/search`, `/api/users`, `/api/users/:id/*`, `/api/users/stats` | Search by username/display name. Create/delete/toggle-admin are admin-only. Delete cascades user content. |
+| `UserHandler` | `internal/handlers/users.go` | `/api/users/me`, `/api/users/search`, `/api/users`, `/api/users/:id/*`, `/api/users/me/blocked`, `/api/users/stats` | Search by username/display name. Create/delete/toggle-admin are admin-only. Delete cascades user content. Block/unblock endpoints are idempotent. |
 | `PostHandler` | `internal/handlers/posts.go` | `/api/posts`, `/api/posts/:id` | Accepts JSON `{ caption }` for text-only posts or multipart with `media` (and optional `thumbnail`). Validates EXIF GPS. Cleans up files on failure/deletion. |
 | `StoryHandler` | `internal/handlers/stories.go` | `/api/stories`, `/api/stories/:id`, `/api/stories/:id/view` | Requires `media_type` and `media`. 24-hour expiry on creation. |
 | `LikeHandler` | `internal/handlers/likes.go` | `/api/posts/:id/like` | Toggle like in a transaction. Returns `liked` + `like_count`. |
-| `CommentHandler` | `internal/handlers/comments.go` | `/api/posts/:id/comments`, `/api/comments/:id` | Comments limited to 1000 characters. |
+| `CommentHandler` | `internal/handlers/comments.go` | `/api/posts/:id/comments`, `/api/comments/:id` | Comments limited to 1000 characters. Comments are filtered to exclude authors the requesting user has blocked. |
 | `NotificationHandler` | `internal/handlers/notifications.go` | `/api/notifications` | Returns likes and comments on the current user's posts, paginated. |
+| `ReportHandler` | `internal/handlers/reports.go` | `/api/reports`, `/api/admin/reports`, `/api/admin/reports/:id` | User reports and admin report management. |
 | `MediaHandler` | `internal/handlers/media.go` | `/api/media`, `/media/*filepath` | Generic media upload; authenticated media serving with path sanitization. |
 
 Shared helpers:
@@ -66,12 +67,14 @@ All SQL/DAO code lives in `internal/models/`:
 | File | Responsibility |
 |------|----------------|
 | `user.go` | User CRUD, password updates, admin toggle. |
-| `post.go` | Feed queries, single post with like/comment counts, create/delete. `posts.media_filename` is nullable to support text-only posts. |
-| `story.go` | Active story queries, view tracking, expired story queries, create/delete. |
-| `comment.go` | Comment CRUD per post. |
+| `post.go` | Feed queries, single post with like/comment counts, create/delete. Feed and per-user post queries exclude authors blocked by the requesting user. `posts.media_filename` is nullable to support text-only posts. |
+| `story.go` | Active story queries, view tracking, expired story queries, create/delete. Active and per-user story queries exclude authors blocked by the requesting user. |
+| `comment.go` | Comment CRUD per post. Comment lists exclude authors blocked by the requesting user. |
 | `like.go` | Toggle like transaction, like count, has-liked check. |
 | `session.go` | Session create/delete/expiry/blacklist check. |
 | `notification.go` | Notification queries for likes/comments on a user's posts. |
+| `report.go` | Report creation, admin listing with target info, and status updates. |
+| `block.go` | Block/unblock operations and blocked-user ID lookups. |
 | `invite_code.go` | Invite code schema helpers (secondary to admin-only creation). |
 
 Rules of thumb:

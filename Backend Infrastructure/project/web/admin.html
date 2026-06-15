@@ -55,6 +55,34 @@
                 </div>
             </section>
 
+            <section class="reports-section">
+                <div class="section-header">
+                    <h2>Reports</h2>
+                    <select id="reports-status-filter" class="btn btn-secondary">
+                        <option value="open" selected>Open</option>
+                        <option value="resolved">Resolved</option>
+                        <option value="all">All</option>
+                    </select>
+                </div>
+                <div id="reports-error" class="error-text"></div>
+                <div class="table-wrapper">
+                    <table id="reports-table">
+                        <thead>
+                            <tr>
+                                <th>Reporter</th>
+                                <th>Target</th>
+                                <th>Reason</th>
+                                <th>Status</th>
+                                <th>Created</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="reports-tbody">
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
             <section class="users-section">
                 <div class="section-header">
                     <h2>Users</h2>

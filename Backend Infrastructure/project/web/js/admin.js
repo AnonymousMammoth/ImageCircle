@@ -8,6 +8,7 @@
 let jwtToken = null;
 let currentUser = null;
 let users = [];
+let reports = [];
 let stats = {};
 
 /* ---------- DOM refs ---------- */
@@ -21,6 +22,9 @@ const adminUsername = $('#admin-username');
 const createUserBtn = $('#create-user-btn');
 const usersTbody    = $('#users-tbody');
 const usersError    = $('#users-error');
+const reportsTbody  = $('#reports-tbody');
+const reportsError  = $('#reports-error');
+const reportsFilter = $('#reports-status-filter');
 const modalOverlay  = $('#modal-overlay');
 const modalContent  = $('#modal-content');
 const modalCloseBtn = $('#modal-close-btn');
@@ -125,6 +129,7 @@ function showApp() {
     appSection.classList.remove('hidden');
     adminUsername.textContent = escapeHtml(currentUser ? currentUser.username : '');
     loadStats();
+    loadReports();
     loadUsers();
 }
 
@@ -162,6 +167,96 @@ async function loadUsers() {
     } catch (err) {
         usersError.textContent = escapeHtml(err.message);
         usersTbody.innerHTML = '';
+    }
+}
+
+/* ---------- Reports Table ---------- */
+async function loadReports() {
+    try {
+        reportsError.textContent = '';
+        const status = reportsFilter ? reportsFilter.value : 'open';
+        const data = await apiCall('GET', '/admin/reports?status=' + encodeURIComponent(status));
+        reports = data && data.reports ? data.reports : [];
+        renderReports();
+    } catch (err) {
+        reportsError.textContent = escapeHtml(err.message);
+        reportsTbody.innerHTML = '';
+    }
+}
+
+function formatTarget(report) {
+    if (!report) return '-';
+    if (report.target_type === 'user' && report.target_user) {
+        return 'User: ' + escapeHtml(report.target_user.username);
+    }
+    if (report.target_type === 'post') {
+        const caption = report.target_post_caption || '(no caption)';
+        return 'Post ' + escapeHtml(String(report.target_id)) + ': ' + escapeHtml(caption);
+    }
+    if (report.target_type === 'story') {
+        return 'Story ' + escapeHtml(String(report.target_id)) + ' (' + escapeHtml(report.target_story_media_type || 'media') + ')';
+    }
+    return escapeHtml(report.target_type) + ' ' + escapeHtml(String(report.target_id));
+}
+
+function renderReports() {
+    reportsTbody.innerHTML = '';
+    if (!reports.length) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = '<td colspan="6" style="text-align:center;color:var(--text-secondary)">No reports found</td>';
+        reportsTbody.appendChild(tr);
+        return;
+    }
+    for (const report of reports) {
+        const tr = document.createElement('tr');
+        const reportId = escapeHtml(String(report.id));
+        const reporter = report.reporter ? escapeHtml(report.reporter.username) : '-';
+        const statusClass = report.status === 'resolved' ? 'badge-user' : 'badge-admin';
+        const isResolved = report.status === 'resolved';
+
+        tr.innerHTML = `
+            <td>${reporter}</td>
+            <td>${formatTarget(report)}</td>
+            <td>${escapeHtml(report.reason)}</td>
+            <td><span class="badge ${statusClass}">${escapeHtml(report.status)}</span></td>
+            <td>${escapeHtml(formatDate(report.created_at))}</td>
+            <td>
+                <button class="btn btn-secondary btn-small" data-action="view-report" data-id="${reportId}">View</button>
+                ${!isResolved ? `<button class="btn btn-primary btn-small" data-action="resolve-report" data-id="${reportId}">Resolve</button>` : ''}
+            </td>
+        `;
+        reportsTbody.appendChild(tr);
+    }
+}
+
+async function viewReport(reportId) {
+    const report = reports.find(r => String(r.id) === String(reportId));
+    if (!report) return;
+
+    const note = report.resolver_note ? `<p><strong>Resolver note:</strong> ${escapeHtml(report.resolver_note)}</p>` : '';
+    showModal(`
+        <h3>Report #${escapeHtml(String(report.id))}</h3>
+        <p><strong>Reporter:</strong> ${escapeHtml(report.reporter ? report.reporter.username : '-')}</p>
+        <p><strong>Target:</strong> ${formatTarget(report)}</p>
+        <p><strong>Reason:</strong> ${escapeHtml(report.reason)}</p>
+        <p><strong>Status:</strong> ${escapeHtml(report.status)}</p>
+        <p><strong>Created:</strong> ${escapeHtml(formatDate(report.created_at))}</p>
+        ${report.resolved_at ? `<p><strong>Resolved:</strong> ${escapeHtml(formatDate(report.resolved_at))}</p>` : ''}
+        ${note}
+    `);
+}
+
+async function resolveReport(reportId) {
+    const report = reports.find(r => String(r.id) === String(reportId));
+    const target = report ? formatTarget(report) : 'this report';
+    const confirmed = confirm('Mark ' + target + ' as resolved?');
+    if (!confirmed) return;
+
+    try {
+        await apiCall('PUT', '/admin/reports/' + reportId, { status: 'resolved' });
+        loadReports();
+    } catch (err) {
+        reportsError.textContent = escapeHtml(err.message);
     }
 }
 
@@ -335,6 +430,21 @@ usersTbody.addEventListener('click', (e) => {
     else if (action === 'toggle-admin') toggleAdmin(userId);
     else if (action === 'delete') deleteUser(userId);
 });
+
+reportsTbody.addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-action]');
+    if (!btn) return;
+    const action = btn.getAttribute('data-action');
+    const reportId = btn.getAttribute('data-id');
+    if (!reportId) return;
+
+    if (action === 'view-report') viewReport(reportId);
+    else if (action === 'resolve-report') resolveReport(reportId);
+});
+
+if (reportsFilter) {
+    reportsFilter.addEventListener('change', loadReports);
+}
 
 /* ---------- Global listeners ---------- */
 loginForm.addEventListener('submit', (e) => {

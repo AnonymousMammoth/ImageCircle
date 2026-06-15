@@ -65,7 +65,8 @@ func CreateComment(db *sql.DB, postID, userID int64, text string) (*Comment, err
 
 // GetCommentsByPost retrieves comments for a post ordered by created_at descending,
 // paginated by limit and offset. Includes user info for each comment.
-func GetCommentsByPost(db *sql.DB, postID int64, limit, offset int) ([]*Comment, error) {
+// Excludes comments authored by users the requesting user has blocked.
+func GetCommentsByPost(db *sql.DB, postID, requestingUserID int64, limit, offset int) ([]*Comment, error) {
 	query := `
 		SELECT
 			c.id, c.post_id, c.user_id, c.text, c.created_at,
@@ -73,10 +74,14 @@ func GetCommentsByPost(db *sql.DB, postID int64, limit, offset int) ([]*Comment,
 		FROM comments c
 		JOIN users u ON c.user_id = u.id
 		WHERE c.post_id = ?
+		  AND NOT EXISTS (
+			  SELECT 1 FROM blocks b
+			  WHERE b.blocker_id = ? AND b.blocked_id = c.user_id
+		  )
 		ORDER BY c.created_at DESC
 		LIMIT ? OFFSET ?
 	`
-	rows, err := db.Query(query, postID, limit, offset)
+	rows, err := db.Query(query, postID, requestingUserID, limit, offset)
 	if err != nil {
 		return nil, fmt.Errorf("query comments by post: %w", err)
 	}

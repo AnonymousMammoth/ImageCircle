@@ -45,6 +45,7 @@ final class AuthManager: ObservableObject {
             let user = try await APIClient.shared.fetchMe()
             self.currentUser = user
             self.isAuthenticated = true
+            await BlockListStore.shared.fetch()
         } catch {
             // Token missing or invalid; remain logged out.
             await logout()
@@ -70,8 +71,9 @@ final class AuthManager: ObservableObject {
         APIClient.shared.token = response.token
         self.currentUser = response.user
         self.isAuthenticated = true
+        await BlockListStore.shared.fetch()
     }
-    
+
     func changePassword(currentPassword: String, newPassword: String) async throws {
         let response = try await APIClient.shared.changePassword(currentPassword: currentPassword, newPassword: newPassword)
         try KeychainHelper.shared.saveToken(response.token)
@@ -93,6 +95,7 @@ final class AuthManager: ObservableObject {
         self.currentUser = nil
         self.isAuthenticated = false
         APIClient.shared.token = nil
+        BlockListStore.shared.clear()
         // Do NOT clear server URL so the user can log in again quickly.
     }
 }

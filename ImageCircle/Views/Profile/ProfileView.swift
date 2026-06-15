@@ -11,8 +11,10 @@ import PhotosUI
 
 struct ProfileView: View {
     let user: User?
-    
+
     @StateObject private var auth = AuthManager.shared
+    @StateObject private var blockStore = BlockListStore.shared
+    @Environment(\.dismiss) private var dismiss
     @State private var posts: [Post] = []
     @State private var selectedPost: Post?
     @State private var commentPost: Post?
@@ -27,7 +29,13 @@ struct ProfileView: View {
     @State private var showAvatarError = false
     @State private var refreshTrigger = UUID()
     @State private var profileUser: User? = nil
-    
+    @State private var showReportSheet = false
+    @State private var showBlockConfirmation = false
+    @State private var showUnblockConfirmation = false
+    @State private var isBlocking = false
+    @State private var blockErrorMessage: String?
+    @State private var showBlockError = false
+
     private var isCurrentUser: Bool {
         guard let user = user, let current = auth.currentUser else { return true }
         return user.id == current.id
@@ -38,7 +46,7 @@ struct ProfileView: View {
     }
     
     private var filteredPosts: [Post] {
-        posts.filter { filter.includes($0) }
+        posts.filter { filter.includes($0) && !blockStore.isBlocked(userID: $0.user.id) }
     }
     
     var body: some View {
@@ -60,6 +68,32 @@ struct ProfileView: View {
                         Image(systemName: "gear")
                     }
                 }
+            } else if let user = displayUser {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Menu {
+                        Button {
+                            showReportSheet = true
+                        } label: {
+                            Label("Report...", systemImage: "exclamationmark.bubble")
+                        }
+
+                        if blockStore.isBlocked(userID: user.id) {
+                            Button {
+                                showUnblockConfirmation = true
+                            } label: {
+                                Label("Unblock user", systemImage: "person.crop.circle.badge.plus")
+                            }
+                        } else {
+                            Button(role: .destructive) {
+                                showBlockConfirmation = true
+                            } label: {
+                                Label("Block user", systemImage: "person.crop.circle.badge.xmark")
+                            }
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis")
+                    }
+                }
             }
         }
         .sheet(isPresented: $showSettings) {
@@ -70,6 +104,41 @@ struct ProfileView: View {
         }
         .sheet(item: $commentPost) { post in
             CommentsSheetView(post: post)
+        }
+        .sheet(isPresented: $showReportSheet) {
+            if let user = displayUser {
+                ReportSheetView(
+                    targetType: .user,
+                    targetID: user.id,
+                    reportedUserID: user.id,
+                    reportedUserName: user.username
+                )
+            }
+        }
+        .alert("Block User?", isPresented: $showBlockConfirmation) {
+            Button("Cancel", role: .cancel) {}
+            Button("Block", role: .destructive) {
+                blockUser()
+            }
+        } message: {
+            if let username = displayUser?.username {
+                Text("You won’t see posts, stories, or comments from @\(username).")
+            }
+        }
+        .alert("Unblock User?", isPresented: $showUnblockConfirmation) {
+            Button("Cancel", role: .cancel) {}
+            Button("Unblock") {
+                unblockUser()
+            }
+        } message: {
+            if let username = displayUser?.username {
+                Text("Unblock @\(username)?")
+            }
+        }
+        .alert("Error", isPresented: $showBlockError, presenting: blockErrorMessage) { _ in
+            Button("OK") {}
+        } message: { message in
+            Text(message)
         }
         .refreshable {
             refreshTrigger = UUID()
@@ -283,6 +352,40 @@ struct ProfileView: View {
         }
     }
     
+    private func blockUser() {
+        guard let userID = displayUser?.id, !isCurrentUser else { return }
+        isBlocking = true
+        Task {
+            do {
+                try await BlockListStore.shared.block(userID: userID)
+                await MainActor.run {
+                    isBlocking = false
+                    dismiss()
+                }
+            } catch {
+                await MainActor.run {
+                    isBlocking = false
+                    blockErrorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+                    showBlockError = true
+                }
+            }
+        }
+    }
+
+    private func unblockUser() {
+        guard let userID = displayUser?.id else { return }
+        Task {
+            do {
+                try await BlockListStore.shared.unblock(userID: userID)
+            } catch {
+                await MainActor.run {
+                    blockErrorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+                    showBlockError = true
+                }
+            }
+        }
+    }
+
     private func uploadAvatar(from item: PhotosPickerItem?) async {
         guard let item = item else { return }
         isUploadingAvatar = true

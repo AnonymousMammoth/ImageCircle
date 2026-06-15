@@ -111,16 +111,17 @@ function avatarUrl(user) {
     return null;
 }
 
-function renderAvatar(user, size) {
+function renderAvatar(user, size, options) {
+    options = options || {};
     const url = avatarUrl(user);
     const sizePx = size || 40;
-    const initial = initials(user ? user.username : '');
+    const initial = initials(user && user.username ? user.username : '');
     const wrapper = createEl('div', { className: 'avatar', style: 'width:' + sizePx + 'px;height:' + sizePx + 'px;' });
     if (url) {
         const img = createEl('img', {
             src: url,
-            alt: user.username,
-            loading: 'lazy'
+            alt: user && user.username ? user.username : '',
+            loading: options.eager ? 'eager' : 'lazy'
         });
         img.onerror = function() {
             img.remove();

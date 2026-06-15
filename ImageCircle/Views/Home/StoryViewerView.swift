@@ -7,6 +7,7 @@
 
 import SwiftUI
 import AVKit
+import AVFoundation
 import Combine
 import Kingfisher
 
@@ -28,8 +29,9 @@ struct StoryViewerView: View {
     @State private var loadError: Error?
     @State private var showDeleteConfirmation = false
     @State private var isDeleting = false
+    @State private var showReportSheet = false
     @State private var photoTimerCancellable: AnyCancellable?
-    
+
     @StateObject private var videoState = VideoPlayerState()
     
     private let storyDuration: CGFloat = 5.0
@@ -49,7 +51,11 @@ struct StoryViewerView: View {
     private var currentGroup: StoryGroup? {
         groups[safe: currentGroupIndex]
     }
-    
+
+    private func isCurrentUser(_ story: Story) -> Bool {
+        story.user.id == AuthManager.shared.currentUser?.id
+    }
+
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
@@ -112,6 +118,16 @@ struct StoryViewerView: View {
             }
         } message: {
             Text("This cannot be undone.")
+        }
+        .sheet(isPresented: $showReportSheet) {
+            if let story = currentStory {
+                ReportSheetView(
+                    targetType: .story,
+                    targetID: story.id,
+                    reportedUserID: story.user.id,
+                    reportedUserName: story.user.username
+                )
+            }
         }
     }
     
@@ -245,14 +261,23 @@ struct StoryViewerView: View {
             Spacer()
                 .allowsHitTesting(false)
 
-            if let story = currentStory, AuthManager.shared.canDelete(contentUserID: story.user.id) {
+            if let story = currentStory, (!isCurrentUser(story) || AuthManager.shared.canDelete(contentUserID: story.user.id)) {
                 Menu {
-                    Button(role: .destructive) {
-                        showDeleteConfirmation = true
-                    } label: {
-                        Label("Delete Story", systemImage: "trash")
+                    if !isCurrentUser(story) {
+                        Button {
+                            showReportSheet = true
+                        } label: {
+                            Label("Report...", systemImage: "exclamationmark.bubble")
+                        }
                     }
-                    .disabled(isDeleting)
+                    if AuthManager.shared.canDelete(contentUserID: story.user.id) {
+                        Button(role: .destructive) {
+                            showDeleteConfirmation = true
+                        } label: {
+                            Label("Delete Story", systemImage: "trash")
+                        }
+                        .disabled(isDeleting)
+                    }
                 } label: {
                     Image(systemName: "ellipsis")
                         .font(.system(size: 16, weight: .semibold))
@@ -524,7 +549,17 @@ final class VideoPlayerState: ObservableObject {
     
     func load(url: URL) {
         reset()
-        let item = AVPlayerItem(url: url)
+
+        // Send the JWT because /media/* requires authentication.
+        var headers: [String: String] = [:]
+        if let token = APIClient.shared.token {
+            headers["Authorization"] = "Bearer \(token)"
+        }
+        let asset = AVURLAsset(
+            url: url,
+            options: ["AVURLAssetHTTPHeaderFieldsKey": headers]
+        )
+        let item = AVPlayerItem(asset: asset)
         let player = AVPlayer(playerItem: item)
         player.isMuted = false
         self.player = player

@@ -3,6 +3,18 @@
  */
 
 (function() {
+    function syncPathToHash() {
+        // The router is hash-based, but the backend serves the SPA shell for
+        // any path. Convert a path-style deep link (e.g. /profile/3) into a
+        // hash route (e.g. #/profile/3) without reloading the page.
+        const hash = window.location.hash;
+        const path = window.location.pathname;
+        const search = window.location.search || '';
+        if ((!hash || hash === '#') && path && path !== '/') {
+            history.replaceState(null, '', '/#' + path + search);
+        }
+    }
+
     async function restoreSession() {
         state.isLoadingAuth = true;
         try {
@@ -20,12 +32,16 @@
     }
 
     async function init() {
+        // Convert path-based deep links to hash routes before the router runs.
+        syncPathToHash();
+
         // Listen for auth required events
         window.addEventListener('circle:authrequired', () => {
             state.clearAuth();
             router.navigate('/login');
         });
 
+        // Always attempt to restore the session from the HttpOnly cookie first.
         await restoreSession();
 
         // Render the shell so route handlers have a layout to work with.

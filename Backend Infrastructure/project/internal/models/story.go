@@ -43,6 +43,7 @@ func CreateStory(db *sql.DB, userID int64, mediaFilename, thumbnailFilename, med
 
 // GetActiveStories retrieves non-expired stories not viewed by the requesting user,
 // ordered by created_at descending. Includes user info and view count.
+// Excludes stories authored by users the requesting user has blocked.
 func GetActiveStories(db *sql.DB, requestingUserID int64, limit, offset int) ([]*Story, error) {
 	query := `
 		SELECT
@@ -57,10 +58,14 @@ func GetActiveStories(db *sql.DB, requestingUserID int64, limit, offset int) ([]
 			  SELECT 1 FROM story_views sv
 			  WHERE sv.story_id = s.id AND sv.user_id = ?
 		  )
+		  AND NOT EXISTS (
+			  SELECT 1 FROM blocks b
+			  WHERE b.blocker_id = ? AND b.blocked_id = s.user_id
+		  )
 		ORDER BY s.created_at DESC
 		LIMIT ? OFFSET ?
 	`
-	rows, err := db.Query(query, requestingUserID, requestingUserID, limit, offset)
+	rows, err := db.Query(query, requestingUserID, requestingUserID, requestingUserID, limit, offset)
 	if err != nil {
 		return nil, fmt.Errorf("query active stories: %w", err)
 	}
@@ -71,6 +76,7 @@ func GetActiveStories(db *sql.DB, requestingUserID int64, limit, offset int) ([]
 }
 
 // GetStoriesByUser retrieves active stories for a specific user, paginated.
+// Excludes stories authored by users the requesting user has blocked.
 func GetStoriesByUser(db *sql.DB, userID, requestingUserID int64, limit, offset int) ([]*Story, error) {
 	query := `
 		SELECT
@@ -82,10 +88,14 @@ func GetStoriesByUser(db *sql.DB, userID, requestingUserID int64, limit, offset 
 		JOIN users u ON s.user_id = u.id
 		WHERE s.user_id = ?
 		  AND s.expires_at > datetime('now')
+		  AND NOT EXISTS (
+			  SELECT 1 FROM blocks b
+			  WHERE b.blocker_id = ? AND b.blocked_id = s.user_id
+		  )
 		ORDER BY s.created_at DESC
 		LIMIT ? OFFSET ?
 	`
-	rows, err := db.Query(query, requestingUserID, userID, limit, offset)
+	rows, err := db.Query(query, requestingUserID, userID, requestingUserID, limit, offset)
 	if err != nil {
 		return nil, fmt.Errorf("query user stories: %w", err)
 	}

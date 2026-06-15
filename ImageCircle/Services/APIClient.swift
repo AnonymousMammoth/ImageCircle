@@ -246,7 +246,19 @@ final class APIClient {
     }
     
     private struct EmptyResponse: Decodable {}
-    
+
+    private struct ReportRequestBody: Codable {
+        let targetType: String
+        let targetId: Int
+        let reason: String
+
+        enum CodingKeys: String, CodingKey {
+            case targetType = "target_type"
+            case targetId = "target_id"
+            case reason
+        }
+    }
+
     private struct PostsResponse: Codable {
         let posts: [Post]
     }
@@ -436,7 +448,36 @@ final class APIClient {
         let response: NotificationsResponse = try await perform(req)
         return response.notifications
     }
-    
+
+    // MARK: - Reports & Blocks
+
+    func createReport(targetType: String, targetID: Int, reason: String) async throws -> ReportResponse {
+        let url = try apiURL(path: "reports")
+        let body = ReportRequestBody(targetType: targetType, targetId: targetID, reason: reason)
+        let data = try jsonEncoder.encode(body)
+        let req = request(for: url, method: "POST", body: data)
+        return try await perform(req)
+    }
+
+    func fetchBlockedUsers() async throws -> [Int] {
+        let url = try apiURL(path: "users/me/blocked")
+        let req = request(for: url)
+        let response: BlockedUsersResponse = try await perform(req)
+        return response.blockedUserIDs
+    }
+
+    func blockUser(id: Int) async throws {
+        let url = try apiURL(path: "users/\(id)/block")
+        let req = request(for: url, method: "POST")
+        try await performVoid(req)
+    }
+
+    func unblockUser(id: Int) async throws {
+        let url = try apiURL(path: "users/\(id)/block")
+        let req = request(for: url, method: "DELETE")
+        try await performVoid(req)
+    }
+
     // MARK: - Admin
     
     func adminFetchUsers() async throws -> [User] {

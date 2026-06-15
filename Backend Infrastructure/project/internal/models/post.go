@@ -99,7 +99,7 @@ func GetPostByIDWithUserContext(db *sql.DB, id, requestingUserID int64) (*Post, 
 }
 
 // GetFeed retrieves posts chronologically descending with engagement stats,
-// paginated by limit and offset.
+// paginated by limit and offset. Excludes posts authored by users the requesting user has blocked.
 func GetFeed(db *sql.DB, requestingUserID int64, limit, offset int) ([]*Post, error) {
 	query := `
 		SELECT
@@ -110,10 +110,14 @@ func GetFeed(db *sql.DB, requestingUserID int64, limit, offset int) ([]*Post, er
 			EXISTS(SELECT 1 FROM likes WHERE post_id = p.id AND user_id = ?) AS has_liked
 		FROM posts p
 		JOIN users u ON p.user_id = u.id
+		WHERE NOT EXISTS (
+			SELECT 1 FROM blocks b
+			WHERE b.blocker_id = ? AND b.blocked_id = p.user_id
+		)
 		ORDER BY p.created_at DESC
 		LIMIT ? OFFSET ?
 	`
-	rows, err := db.Query(query, requestingUserID, limit, offset)
+	rows, err := db.Query(query, requestingUserID, requestingUserID, limit, offset)
 	if err != nil {
 		return nil, fmt.Errorf("query feed: %w", err)
 	}
@@ -123,7 +127,7 @@ func GetFeed(db *sql.DB, requestingUserID int64, limit, offset int) ([]*Post, er
 }
 
 // GetPostsByUser retrieves posts by a specific user with engagement stats,
-// paginated by limit and offset.
+// paginated by limit and offset. Excludes posts authored by users the requesting user has blocked.
 func GetPostsByUser(db *sql.DB, userID, requestingUserID int64, limit, offset int) ([]*Post, error) {
 	query := `
 		SELECT
@@ -135,10 +139,14 @@ func GetPostsByUser(db *sql.DB, userID, requestingUserID int64, limit, offset in
 		FROM posts p
 		JOIN users u ON p.user_id = u.id
 		WHERE p.user_id = ?
+		  AND NOT EXISTS (
+			  SELECT 1 FROM blocks b
+			  WHERE b.blocker_id = ? AND b.blocked_id = p.user_id
+		  )
 		ORDER BY p.created_at DESC
 		LIMIT ? OFFSET ?
 	`
-	rows, err := db.Query(query, requestingUserID, userID, limit, offset)
+	rows, err := db.Query(query, requestingUserID, userID, requestingUserID, limit, offset)
 	if err != nil {
 		return nil, fmt.Errorf("query posts by user: %w", err)
 	}

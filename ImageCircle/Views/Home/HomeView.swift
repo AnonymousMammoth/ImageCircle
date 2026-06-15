@@ -9,7 +9,8 @@ import SwiftUI
 
 struct HomeView: View {
     @Binding var refreshTrigger: UUID
-    
+
+    @StateObject private var blockStore = BlockListStore.shared
     @State private var posts: [Post] = []
     @State private var storyGroups: [StoryGroup] = []
     @State private var selectedGroupIndex: Int = 0
@@ -25,7 +26,11 @@ struct HomeView: View {
     
     /// Posts filtered by the selected segment (client-side until backend supports ?type=).
     private var filteredPosts: [Post] {
-        posts.filter { feedFilter.includes($0) }
+        posts.filter { feedFilter.includes($0) && !blockStore.isBlocked(userID: $0.user.id) }
+    }
+
+    private var visibleStoryGroups: [StoryGroup] {
+        storyGroups.filter { !blockStore.isBlocked(userID: $0.user.id) }
     }
     
     var body: some View {
@@ -33,7 +38,7 @@ struct HomeView: View {
             ScrollView {
                 LazyVStack(spacing: 0, pinnedViews: []) {
                     StoriesTrayView(
-                        groups: storyGroups,
+                        groups: visibleStoryGroups,
                         onStorySelected: { groupIndex, storyIndex in
                             selectedGroupIndex = groupIndex
                             selectedStoryIndex = storyIndex
@@ -80,11 +85,11 @@ struct HomeView: View {
                 CommentsSheetView(post: post)
             }
             .fullScreenCover(isPresented: $showStoryViewer) {
-                if !storyGroups.isEmpty,
-                   storyGroups.indices.contains(selectedGroupIndex),
-                   storyGroups[selectedGroupIndex].stories.indices.contains(selectedStoryIndex) {
+                if !visibleStoryGroups.isEmpty,
+                   visibleStoryGroups.indices.contains(selectedGroupIndex),
+                   visibleStoryGroups[selectedGroupIndex].stories.indices.contains(selectedStoryIndex) {
                     StoryViewerView(
-                        groups: storyGroups,
+                        groups: visibleStoryGroups,
                         groupIndex: selectedGroupIndex,
                         storyIndex: selectedStoryIndex,
                         isPresented: $showStoryViewer,
@@ -201,6 +206,7 @@ struct HomeView: View {
 
 struct CommentsSheetView: View {
     let post: Post
+    @StateObject private var blockStore = BlockListStore.shared
     @State private var comments: [Comment] = []
     @State private var newComment: String = ""
     @State private var isLoading = false
@@ -208,11 +214,15 @@ struct CommentsSheetView: View {
     @State private var showError = false
     @State private var profileUser: User? = nil
     @Environment(\.dismiss) private var dismiss
+
+    private var visibleComments: [Comment] {
+        comments.filter { !blockStore.isBlocked(userID: $0.user.id) }
+    }
     
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                List(comments) { comment in
+                List(visibleComments) { comment in
                     HStack(alignment: .top, spacing: 12) {
                         Button(action: { profileUser = comment.user }) {
                             HStack(alignment: .top, spacing: 12) {

@@ -23,7 +23,8 @@ struct PostCardView: View {
     @State private var isDeleting = false
     @State private var showDeleteError = false
     @State private var deleteErrorMessage: String?
-    
+    @State private var showReportSheet = false
+
     private let likeLock = NSLock()
     
     init(
@@ -44,7 +45,11 @@ struct PostCardView: View {
     private var canDelete: Bool {
         AuthManager.shared.canDelete(contentUserID: postState.user.id)
     }
-    
+
+    private var isCurrentUser: Bool {
+        postState.user.id == AuthManager.shared.currentUser?.id
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             header
@@ -60,6 +65,14 @@ struct PostCardView: View {
         .background(Color(.systemBackground))
         .onChange(of: post) { _, newPost in
             postState = newPost
+        }
+        .sheet(isPresented: $showReportSheet) {
+            ReportSheetView(
+                targetType: .post,
+                targetID: postState.id,
+                reportedUserID: postState.user.id,
+                reportedUserName: postState.user.username
+            )
         }
         .alert("Could Not Delete Post", isPresented: $showDeleteError) {
             Button("OK", role: .cancel) {}
@@ -91,14 +104,23 @@ struct PostCardView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
             
-            if canDelete {
+            if !isCurrentUser || canDelete {
                 Menu {
-                    Button(role: .destructive) {
-                        showDeleteConfirmation = true
-                    } label: {
-                        Label("Delete", systemImage: "trash")
+                    if !isCurrentUser {
+                        Button {
+                            showReportSheet = true
+                        } label: {
+                            Label("Report...", systemImage: "exclamationmark.bubble")
+                        }
                     }
-                    .disabled(isDeleting)
+                    if canDelete {
+                        Button(role: .destructive) {
+                            showDeleteConfirmation = true
+                        } label: {
+                            Label("Delete", systemImage: "trash")
+                        }
+                        .disabled(isDeleting)
+                    }
                 } label: {
                     Image(systemName: "ellipsis")
                         .font(.system(size: 14, weight: .semibold))

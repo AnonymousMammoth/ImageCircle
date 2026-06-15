@@ -24,6 +24,8 @@ type CreateCommentRequest struct {
 
 // ListComments returns comments for a post, paginated by ?page and ?limit.
 func (h *CommentHandler) ListComments(c *gin.Context) {
+	userID := c.GetInt64("user_id")
+
 	postID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
 		utils.RespondError(c, http.StatusBadRequest, "invalid post id")
@@ -42,7 +44,7 @@ func (h *CommentHandler) ListComments(c *gin.Context) {
 	}
 
 	page := utils.GetPagination(c)
-	comments, err := models.GetCommentsByPost(h.DB, postID, page.Limit, page.Offset)
+	comments, err := models.GetCommentsByPost(h.DB, postID, userID, page.Limit, page.Offset)
 	if err != nil {
 		utils.RespondError(c, http.StatusInternalServerError, "failed to retrieve comments")
 		return

@@ -168,6 +168,10 @@ func main() {
 		DB: sqlDB,
 	}
 
+	reportHandler := &handlers.ReportHandler{
+		DB: sqlDB,
+	}
+
 	mediaHandler := &handlers.MediaHandler{
 		MediaStore: mediaStore,
 		MediaDir:   cfg.MediaDir,
@@ -213,6 +217,7 @@ func main() {
 		auth.GET("/api/users/me", userHandler.GetMe)
 		auth.PUT("/api/users/me", userHandler.UpdateMe)
 		auth.POST("/api/users/me/avatar", userHandler.UpdateAvatar)
+		auth.GET("/api/users/me/blocked", userHandler.ListBlockedUsers)
 		auth.GET("/api/users/:id/posts", userHandler.GetUserPosts)
 		auth.GET("/api/users/:id/stories", userHandler.GetUserStories)
 		auth.GET("/api/users", middleware.AdminRequired(), userHandler.ListUsers)
@@ -220,6 +225,8 @@ func main() {
 		auth.DELETE("/api/users/:id", middleware.AdminRequired(), userHandler.DeleteUser)
 		auth.POST("/api/users/:id/reset-password", middleware.AdminRequired(), userHandler.ResetPassword)
 		auth.POST("/api/users/:id/toggle-admin", middleware.AdminRequired(), userHandler.ToggleAdmin)
+		auth.POST("/api/users/:id/block", userHandler.BlockUser)
+		auth.DELETE("/api/users/:id/block", userHandler.UnblockUser)
 		auth.GET("/api/users/stats", middleware.AdminRequired(), userHandler.GetStats)
 
 		// Posts
@@ -245,6 +252,11 @@ func main() {
 
 		// Notifications
 		auth.GET("/api/notifications", notificationHandler.ListNotifications)
+
+		// Reports
+		auth.POST("/api/reports", reportHandler.CreateReport)
+		auth.GET("/api/admin/reports", middleware.AdminRequired(), reportHandler.ListReports)
+		auth.PUT("/api/admin/reports/:id", middleware.AdminRequired(), reportHandler.UpdateReport)
 
 		// Media
 		auth.POST("/api/media", mediaHandler.Upload)

@@ -13,14 +13,20 @@ struct StoriesTrayView: View {
     let onStorySelected: (Int, Int) -> Void
     var onAddStoryTapped: (() -> Void)? = nil
     var showAddButton: Bool = false
-    
+
+    @StateObject private var blockStore = BlockListStore.shared
+
+    private var visibleGroups: [StoryGroup] {
+        groups.filter { !blockStore.isBlocked(userID: $0.user.id) }
+    }
+
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 16) {
                 if showAddButton {
                     AddStoryCircle(action: { onAddStoryTapped?() })
                 }
-                ForEach(Array(groups.enumerated()), id: \.element.id) { index, group in
+                ForEach(Array(visibleGroups.enumerated()), id: \.element.id) { index, group in
                     StoryCircle(group: group) {
                         onStorySelected(index, 0)
                     }

@@ -81,6 +81,10 @@ const profileComponent = {
     },
 
     renderHeader(container, isCurrentUser) {
+        // Guard against duplicate profile headers if render is triggered twice.
+        const existing = container.querySelector('.profile-header');
+        if (existing) existing.remove();
+
         const header = createEl('div', { className: 'profile-header' });
 
         const avatarWrap = createEl('div', { className: 'profile-avatar-upload' });
@@ -96,11 +100,16 @@ const profileComponent = {
 
         const username = createEl('div', { className: 'username', text: this.user.username });
         const displayName = createEl('div', { className: 'display-name', text: this.user.display_name || '' });
+        const names = createEl('div', { className: 'profile-names' });
+        names.appendChild(username);
+        names.appendChild(displayName);
 
         header.appendChild(avatarWrap);
-        header.appendChild(username);
-        header.appendChild(displayName);
+        header.appendChild(names);
         container.appendChild(header);
+
+        const existingStats = container.querySelector('.profile-stats');
+        if (existingStats) existingStats.remove();
 
         const stats = createEl('div', { className: 'profile-stats' });
         const stat = createEl('div', { className: 'stat' });
