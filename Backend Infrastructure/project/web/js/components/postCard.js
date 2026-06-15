@@ -49,6 +49,11 @@ const postCardComponent = {
             menuBtn.innerHTML = shell.icons.menu;
             menuBtn.addEventListener('click', () => this.deletePost(post));
             header.appendChild(menuBtn);
+        } else if (state.user) {
+            const reportBtn = createEl('button', { className: 'menu-btn' });
+            reportBtn.innerHTML = shell.icons.menu;
+            reportBtn.addEventListener('click', () => this.reportPost(post));
+            header.appendChild(reportBtn);
         }
 
         return header;
@@ -193,6 +198,17 @@ const postCardComponent = {
             await deletePost(post.id);
             const card = document.querySelector('.post-card[data-post-id="' + post.id + '"]');
             if (card) card.remove();
+        } catch (err) {
+            showAlert(err.message);
+        }
+    },
+
+    async reportPost(post) {
+        const reason = window.prompt('Reason for report?');
+        if (!reason || !reason.trim()) return;
+        try {
+            await createReport(post.id, 'post', reason.trim());
+            showAlert('Report submitted');
         } catch (err) {
             showAlert(err.message);
         }

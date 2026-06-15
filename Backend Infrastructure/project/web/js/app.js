@@ -74,6 +74,29 @@
         }
     }
 
+    function renderOfflineBanner() {
+        let banner = document.getElementById('offline-banner');
+        if (!navigator.onLine) {
+            if (!banner) {
+                banner = createEl('div', { id: 'offline-banner', className: 'offline-banner' });
+                banner.textContent = 'You\'re offline. Some features may be unavailable.';
+                document.body.appendChild(banner);
+            }
+        } else if (banner) {
+            banner.remove();
+        }
+    }
+
+    function initConnectionListeners() {
+        const dispatch = () => {
+            window.dispatchEvent(new CustomEvent('circle:connection', { detail: { online: navigator.onLine } }));
+            renderOfflineBanner();
+        };
+        window.addEventListener('online', dispatch);
+        window.addEventListener('offline', dispatch);
+        renderOfflineBanner();
+    }
+
     async function init() {
         // Convert path-based deep links to hash routes before the router runs.
         syncPathToHash();
@@ -110,6 +133,7 @@
         });
 
         detectIosStandalone();
+        initConnectionListeners();
     }
 
     if (document.readyState === 'loading') {

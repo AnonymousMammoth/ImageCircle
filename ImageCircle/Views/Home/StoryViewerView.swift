@@ -216,12 +216,16 @@ struct StoryViewerView: View {
                 progressBar
                     .padding(.top, geo.safeAreaInsets.top + 8)
                     .padding(.horizontal, 12)
-                
+
+                tapZones(
+                    width: geo.size.width,
+                    safeAreaTop: geo.safeAreaInsets.top,
+                    safeAreaBottom: geo.safeAreaInsets.bottom
+                )
+
                 bottomInfo
                     .padding(.bottom, geo.safeAreaInsets.bottom + 24)
-                
-                tapZones(width: geo.size.width, safeAreaTop: geo.safeAreaInsets.top)
-                
+
                 topBar
                     .padding(.top, geo.safeAreaInsets.top + 16)
                     .padding(.horizontal, 12)
@@ -293,13 +297,13 @@ struct StoryViewerView: View {
         }
     }
     
-    private func tapZones(width: CGFloat, safeAreaTop: CGFloat) -> some View {
+    private func tapZones(width: CGFloat, safeAreaTop: CGFloat, safeAreaBottom: CGFloat) -> some View {
         HStack(spacing: 0) {
             tapZone(width: width * 0.33, action: { previousStory() }, label: "Previous story")
             tapZone(width: width * 0.67, action: { nextStory() }, label: "Next story")
         }
         .padding(.top, safeAreaTop + 80)
-        .frame(maxHeight: .infinity)
+        .padding(.bottom, safeAreaBottom + 80)
     }
     
     private func tapZone(width: CGFloat, action: @escaping () -> Void, label: String) -> some View {

@@ -18,15 +18,22 @@ const storyViewerComponent = {
     isDeleting: false,
     isMuted: true,
     preferUnmuted: false,
+    progressFills: [],
+    progressGroupIndex: -1,
 
     open(groups, groupIndex) {
         if (!groups || !groups.length) return;
+        this.cleanupCurrentMedia();
         this.groups = groups;
         this.groupIndex = clamp(groupIndex || 0, 0, groups.length - 1);
         this.storyIndex = 0;
         this.progress = 0;
         this.viewedIds = new Set();
         this.isDeleting = false;
+        this.isPaused = false;
+        this.isDragging = false;
+        this.dragOffset = 0;
+        this.clearTimer();
         this.render();
         this.setupStory();
     },
@@ -105,45 +112,11 @@ const storyViewerComponent = {
 
         const addTouch = (el, action) => {
             let isPointerDown = false;
-            el.addEventListener('touchstart', (e) => {
-                this.isDragging = false;
-                this.startY = e.touches[0].clientY;
-                startLongPress();
-            }, { passive: true });
-            el.addEventListener('touchmove', (e) => {
-                const y = e.touches[0].clientY;
-                const diff = y - this.startY;
-                if (diff > 10) {
-                    if (longPressTimer) clearTimeout(longPressTimer);
-                    this.isPaused = true;
-                    this.updatePause();
-                    this.isDragging = true;
-                    this.dragOffset = diff;
-                    overlay.style.transform = 'translateY(' + diff + 'px)';
-                    overlay.style.opacity = String(1 - Math.min(diff / 400, 1));
-                }
-            }, { passive: true });
-            el.addEventListener('touchend', (e) => {
-                endLongPress();
-                if (this.isDragging) {
-                    if (this.dragOffset > 120) {
-                        this.close();
-                    } else {
-                        overlay.style.transform = 'translateY(0)';
-                        overlay.style.opacity = '1';
-                    }
-                    this.isDragging = false;
-                    this.dragOffset = 0;
-                } else {
-                    action();
-                }
-            });
-
-            // Mouse/pointer support for desktop
             el.addEventListener('pointerdown', (e) => {
                 isPointerDown = true;
                 this.isDragging = false;
                 this.startY = e.clientY;
+                try { el.setPointerCapture(e.pointerId); } catch (_) {}
                 startLongPress();
             });
             el.addEventListener('pointermove', (e) => {
@@ -162,6 +135,7 @@ const storyViewerComponent = {
             el.addEventListener('pointerup', (e) => {
                 if (!isPointerDown) return;
                 isPointerDown = false;
+                try { el.releasePointerCapture(e.pointerId); } catch (_) {}
                 endLongPress();
                 if (this.isDragging) {
                     if (this.dragOffset > 120) {
@@ -222,9 +196,11 @@ const storyViewerComponent = {
 
         if (story.media_type === 'video' || story.mediaType === 'video') {
             this.progress = 0;
+            this.updateProgressFill();
         } else {
             this.progress = 0;
-            this.startImageTimer();
+            this.updateProgressFill();
+            // Image timer is started once the blob image actually loads.
         }
     },
 
@@ -267,10 +243,36 @@ const storyViewerComponent = {
         this.updateMuteButton();
     },
 
+    cleanupCurrentMedia() {
+        if (this.currentMedia) {
+            if (this.currentMedia.tagName === 'VIDEO') {
+                this.currentMedia.pause();
+                this.currentMedia.removeEventListener('ended', this._onVideoEnded);
+                this.currentMedia.removeEventListener('loadedmetadata', this._onVideoLoaded);
+                this.currentMedia.removeEventListener('canplay', this._onVideoLoaded);
+                this.currentMedia.removeEventListener('error', this._onVideoError);
+                this.currentMedia.removeEventListener('timeupdate', this._onVideoTimeUpdate);
+                this.currentMedia.src = '';
+                this.currentMedia.load();
+            } else if (this.currentMedia.tagName === 'IMG') {
+                this.currentMedia.onload = null;
+                this.currentMedia.onerror = null;
+            }
+            if (this.currentMedia._blobUrl) {
+                URL.revokeObjectURL(this.currentMedia._blobUrl);
+                this.currentMedia._blobUrl = null;
+            }
+            this.currentMedia = null;
+        }
+    },
+
     renderStoryMedia() {
         const content = document.getElementById('story-content');
         const old = content.querySelector('#story-media');
-        if (old) old.remove();
+        if (old) {
+            this.cleanupCurrentMedia();
+            old.remove();
+        }
 
         const story = this.currentStory();
         if (!story) return;
@@ -282,52 +284,101 @@ const storyViewerComponent = {
             style: 'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;'
         });
 
+        const spinner = createEl('div', {
+            className: 'story-media-loading',
+            style: 'position:absolute;z-index:0;width:48px;height:48px;border:4px solid rgba(255,255,255,0.2);border-top-color:white;border-radius:50%;animation:spin 1s linear infinite;'
+        });
+        mediaWrap.appendChild(spinner);
+
+        const showError = () => {
+            mediaWrap.innerHTML = '<p style="color:white;position:relative;z-index:1;">Could not load ' + (isVideo ? 'video' : 'image') + '</p>';
+        };
+
         if (isVideo) {
             const startMuted = !this.preferUnmuted;
             const video = createEl('video', {
-                src: url,
-                autoplay: true,
                 playsinline: true,
                 muted: startMuted,
                 volume: 1,
-                style: 'max-width:100%;max-height:100%;object-fit:contain;'
+                preload: 'auto',
+                style: 'max-width:100%;max-height:100%;object-fit:contain;position:relative;z-index:1;'
             });
-            video.addEventListener('ended', () => this.next());
-            video.addEventListener('loadedmetadata', () => {});
-            video.addEventListener('error', () => {
-                mediaWrap.innerHTML = '<p style="color:white">Could not load video</p>';
-            });
+
+            this._onVideoEnded = () => this.next();
+            this._onVideoLoaded = () => {
+                if (video._loaded) return;
+                video._loaded = true;
+                spinner.remove();
+                this.updateProgressFill();
+                if (!this.isPaused) {
+                    video.play().then(() => {
+                        if (this.preferUnmuted) {
+                            video.muted = false;
+                        }
+                        this.isMuted = video.muted;
+                        this.updateMuteButton();
+                    }).catch(() => {
+                        this.isMuted = true;
+                        this.updateMuteButton();
+                    });
+                }
+            };
+            this._onVideoError = () => {
+                spinner.remove();
+                showError();
+            };
+            this._onVideoTimeUpdate = () => {
+                if (video.duration && isFinite(video.duration)) {
+                    this.progress = video.currentTime / video.duration;
+                    this.updateProgressFill();
+                }
+            };
+
+            video.addEventListener('ended', this._onVideoEnded);
+            video.addEventListener('loadedmetadata', this._onVideoLoaded);
+            video.addEventListener('canplay', this._onVideoLoaded);
+            video.addEventListener('error', this._onVideoError);
+            video.addEventListener('timeupdate', this._onVideoTimeUpdate);
+
             this.currentMedia = video;
             this.isMuted = startMuted;
             mediaWrap.appendChild(video);
 
-            // If the user has previously unmuted, try to start unmuted.
-            // Browsers may still block unmuted autoplay until a user gesture
-            // has been registered for the tab; fall back to muted with the
-            // unmute button if so.
-            const tryUnmute = () => {
-                if (!this.currentMedia || this.currentMedia.tagName !== 'VIDEO') return;
-                if (this.preferUnmuted) {
-                    this.currentMedia.muted = false;
+            loadAuthenticatedMedia(url).then(blobUrl => {
+                if (this.currentMedia !== video) {
+                    URL.revokeObjectURL(blobUrl);
+                    return;
                 }
-                this.isMuted = this.currentMedia.muted;
-                this.updateMuteButton();
-            };
-            video.play().then(tryUnmute).catch(() => {
-                // Autoplay blocked; remain muted until user gestures.
-                this.isMuted = true;
-                this.updateMuteButton();
+                video._blobUrl = blobUrl;
+                video.src = blobUrl;
+                video.load();
+            }).catch(() => {
+                if (this.currentMedia === video) showError();
             });
         } else {
             const img = createEl('img', {
-                src: url,
                 alt: '',
-                loading: 'lazy',
-                style: 'max-width:100%;max-height:100%;object-fit:contain;'
+                loading: 'eager',
+                style: 'max-width:100%;max-height:100%;object-fit:contain;position:relative;z-index:1;'
             });
-            img.onerror = () => { mediaWrap.innerHTML = '<p style="color:white">Could not load image</p>'; };
+            img.onload = () => {
+                spinner.remove();
+                if (this.currentMedia === img) this.startImageTimer();
+            };
+            img.onerror = () => { showError(); };
             this.currentMedia = img;
             mediaWrap.appendChild(img);
+
+            loadAuthenticatedMedia(url).then(blobUrl => {
+                if (this.currentMedia !== img) {
+                    URL.revokeObjectURL(blobUrl);
+                    return;
+                }
+                img._blobUrl = blobUrl;
+                img.src = blobUrl;
+            }).catch(() => {
+                if (this.currentMedia === img) showError();
+            });
         }
 
         content.insertBefore(mediaWrap, content.firstChild);
@@ -336,17 +387,31 @@ const storyViewerComponent = {
     renderProgressBars() {
         const wrap = document.getElementById('story-progress');
         if (!wrap) return;
-        clearEl(wrap);
         const group = this.groups[this.groupIndex];
         if (!group) return;
-        group.stories.forEach((_, idx) => {
+        if (this.progressGroupIndex === this.groupIndex && this.progressFills.length === group.stories.length) {
+            this.updateProgressFill();
+            return;
+        }
+        clearEl(wrap);
+        this.progressFills = [];
+        this.progressGroupIndex = this.groupIndex;
+        group.stories.forEach(() => {
             const bar = createEl('div', { className: 'story-progress-bar' });
             const fill = createEl('div', { className: 'story-progress-fill' });
+            bar.appendChild(fill);
+            wrap.appendChild(bar);
+            this.progressFills.push(fill);
+        });
+        this.updateProgressFill();
+    },
+
+    updateProgressFill() {
+        this.progressFills.forEach((fill, idx) => {
+            if (!fill) return;
             if (idx < this.storyIndex) fill.style.width = '100%';
             else if (idx === this.storyIndex) fill.style.width = (this.progress * 100) + '%';
             else fill.style.width = '0%';
-            bar.appendChild(fill);
-            wrap.appendChild(bar);
         });
     },
 
@@ -357,7 +422,7 @@ const storyViewerComponent = {
         this.timer = setInterval(() => {
             if (this.isPaused) return;
             this.progress += interval / duration;
-            this.renderProgressBars();
+            this.updateProgressFill();
             if (this.progress >= 1) {
                 this.next();
             }
@@ -456,10 +521,15 @@ const storyViewerComponent = {
 
     close() {
         this.clearTimer();
+        this.cleanupCurrentMedia();
         const overlay = document.getElementById('story-viewer-overlay');
         if (overlay) overlay.remove();
-        this.currentMedia = null;
+        this.progressFills = [];
+        this.progressGroupIndex = -1;
         this.isDeleting = false;
+        this.isPaused = false;
+        this.isDragging = false;
+        this.dragOffset = 0;
         this.preferUnmuted = false;
     }
 };

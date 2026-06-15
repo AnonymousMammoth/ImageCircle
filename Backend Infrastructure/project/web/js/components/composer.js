@@ -183,6 +183,7 @@ const composerComponent = {
         this.setLoading(true);
         try {
             await createTextPost(trimmed);
+            homeComponent.hasLoaded = false;
             router.navigate('/');
         } catch (err) {
             showAlert(err.message);
@@ -204,6 +205,7 @@ const composerComponent = {
             this.revokePreviewUrl();
             this.selectedFile = null;
             this.mediaType = 'image';
+            homeComponent.hasLoaded = false;
             router.navigate('/');
         } catch (err) {
             showAlert(err.message);

@@ -256,3 +256,7 @@ async function createStory(file, mediaType, thumbnailFile, progressCallback) {
     if (thumbnailFile) formData.append('thumbnail', thumbnailFile, thumbnailFile.name);
     return apiMultipart('/stories', formData, progressCallback);
 }
+
+async function createReport(targetId, targetType, reason) {
+    return apiPost('/reports', { target_id: targetId, target_type: targetType, reason });
+}

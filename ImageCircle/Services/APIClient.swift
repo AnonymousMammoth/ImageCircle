@@ -284,6 +284,10 @@ final class APIClient {
         let notifications: [AppNotification]
     }
 
+    private struct UnreadCountResponse: Codable {
+        let count: Int
+    }
+
     private struct ContentItemsResponse<T: Codable>: Codable {
         let items: [T]
     }
@@ -455,6 +459,19 @@ final class APIClient {
         let req = request(for: url)
         let response: NotificationsResponse = try await perform(req)
         return response.notifications
+    }
+
+    func fetchUnreadNotificationCount() async throws -> Int {
+        let url = try apiURL(path: "notifications/unread-count")
+        let req = request(for: url)
+        let response: UnreadCountResponse = try await perform(req)
+        return response.count
+    }
+
+    func markNotificationsRead() async throws {
+        let url = try apiURL(path: "notifications/read")
+        let req = request(for: url, method: "POST")
+        try await performVoid(req)
     }
 
     // MARK: - Reports & Blocks

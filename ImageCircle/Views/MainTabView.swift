@@ -11,7 +11,8 @@ struct MainTabView: View {
     @ObservedObject private var auth = AuthManager.shared
     @State private var selectedTab = 0
     @State private var refreshFeedTrigger = UUID()
-    
+    @State private var unreadCount: Int = 0
+
     var body: some View {
         TabView(selection: $selectedTab) {
             HomeView(refreshTrigger: $refreshFeedTrigger)
@@ -46,6 +47,7 @@ struct MainTabView: View {
                     Image(systemName: selectedTab == 3 ? "bell.fill" : "bell")
                     Text("Notifications")
                 }
+                .badge(unreadCount)
                 .tag(3)
             
             NavigationStack {
@@ -67,5 +69,33 @@ struct MainTabView: View {
             }
         }
         .tint(.pink)
+        .onAppear {
+            updateUnreadCount()
+        }
+        .onChange(of: selectedTab) { _, _ in
+            if selectedTab == 3 {
+                updateUnreadCount()
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .notificationsDidRead)) { _ in
+            unreadCount = 0
+        }
     }
+
+    private func updateUnreadCount() {
+        Task {
+            do {
+                let count = try await APIClient.shared.fetchUnreadNotificationCount()
+                await MainActor.run {
+                    unreadCount = count
+                }
+            } catch {
+                // Silently ignore badge fetch failures.
+            }
+        }
+    }
+}
+
+extension Notification.Name {
+    static let notificationsDidRead = Notification.Name("notificationsDidRead")
 }

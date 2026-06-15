@@ -43,6 +43,22 @@ html, body {
     position: relative;
 }
 
+.offline-banner {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    padding: 6px 16px calc(6px + var(--safe-top));
+    padding-top: calc(6px + var(--safe-top));
+    background: var(--text);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 500;
+    text-align: center;
+    z-index: 1000;
+    pointer-events: none;
+}
+
 .hidden {
     display: none !important;
 }

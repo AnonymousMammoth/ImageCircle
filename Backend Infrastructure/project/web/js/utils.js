@@ -105,6 +105,21 @@ function authenticatedMediaUrl(url) {
     return url || null;
 }
 
+// Fetches a media URL with the stored bearer token and same-origin credentials,
+// returning a blob URL suitable for <img src> or <video src>. This works around
+// Safari/PWA quirks where subresource requests may not carry the session cookie.
+async function loadAuthenticatedMedia(url) {
+    if (!url) return null;
+    const headers = {};
+    if (state.token) {
+        headers['Authorization'] = 'Bearer ' + state.token;
+    }
+    const response = await fetch(url, { credentials: 'same-origin', headers });
+    if (!response.ok) throw new Error('status ' + response.status);
+    const blob = await response.blob();
+    return URL.createObjectURL(blob);
+}
+
 function avatarUrl(user) {
     if (!user) return null;
     let url = null;

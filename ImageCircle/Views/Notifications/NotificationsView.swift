@@ -133,6 +133,12 @@ struct NotificationsView: View {
         isLoading = true
         do {
             notifications = try await APIClient.shared.fetchNotifications()
+            do {
+                try await APIClient.shared.markNotificationsRead()
+                NotificationCenter.default.post(name: .notificationsDidRead, object: nil)
+            } catch {
+                // Leave badge as-is; it will refresh on the next poll.
+            }
         } catch {
             if Task.isCancelled || error is CancellationError || (error as? APIError) == .cancelled {
                 // Ignore cancellation.

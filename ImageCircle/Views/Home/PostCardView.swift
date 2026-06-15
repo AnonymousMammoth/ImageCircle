@@ -123,9 +123,11 @@ struct PostCardView: View {
                     }
                 } label: {
                     Image(systemName: "ellipsis")
-                        .font(.system(size: 14, weight: .semibold))
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 24, height: 24)
                         .foregroundStyle(.secondary)
-                        .frame(width: 28, height: 28)
+                        .frame(minWidth: 44, minHeight: 44)
                         .contentShape(Rectangle())
                 }
             }
@@ -198,15 +200,19 @@ struct PostCardView: View {
                     .scaledToFit()
                     .frame(width: 24, height: 24)
                     .foregroundStyle(postState.hasLiked ? .pink : .primary)
+                    .frame(minWidth: 44, minHeight: 44)
+                    .contentShape(Rectangle())
             }
             .disabled(isLiking)
             .accessibilityLabel(postState.hasLiked ? "Unlike" : "Like")
-            
+
             Button(action: onCommentTapped) {
                 Image(systemName: "bubble.right")
                     .resizable()
                     .scaledToFit()
                     .frame(width: 24, height: 24)
+                    .frame(minWidth: 44, minHeight: 44)
+                    .contentShape(Rectangle())
             }
             .accessibilityLabel("Comment")
             

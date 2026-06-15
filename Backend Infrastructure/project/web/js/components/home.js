@@ -8,10 +8,14 @@ const homeComponent = {
     filter: 'mixed',
     isLoading: false,
     hasLoaded: false,
+    loadError: null,
+    loadErrorMessage: '',
     page: 1,
     hasMore: true,
     observer: null,
     mountToken: null,
+    pullStartY: 0,
+    pullStartScroll: 0,
 
     render(container) {
         if (this.mountToken) this.mountToken.cancel();
@@ -40,25 +44,36 @@ const homeComponent = {
         this.renderFeed(feedContainer);
 
         // Pull to refresh via swipe down gesture
-        let startY = 0;
-        let pullStart = 0;
-        const onTouchStart = (e) => {
-            startY = e.touches[0].clientY;
-            pullStart = container.scrollTop;
+        this.detachPullToRefresh(container);
+        this.onTouchStart = (e) => {
+            this.pullStartY = e.touches[0].clientY;
+            this.pullStartScroll = container.scrollTop;
         };
-        const onTouchEnd = (e) => {
+        this.onTouchEnd = (e) => {
             const endY = e.changedTouches[0].clientY;
-            if (endY - startY > 120 && pullStart <= 0 && container.scrollTop <= 0) {
+            if (endY - this.pullStartY > 120 && this.pullStartScroll <= 0 && container.scrollTop <= 0) {
                 this.hasLoaded = false;
                 this.loadData(token);
             }
         };
-        container.addEventListener('touchstart', onTouchStart, { passive: true });
-        container.addEventListener('touchend', onTouchEnd, { passive: true });
+        container.addEventListener('touchstart', this.onTouchStart, { passive: true });
+        container.addEventListener('touchend', this.onTouchEnd, { passive: true });
 
         // Cache data and only fetch on first mount or explicit pull-to-refresh
         if (!this.hasLoaded) {
             this.loadData(token);
+        }
+    },
+
+    detachPullToRefresh(container) {
+        if (!container) return;
+        if (this.onTouchStart) {
+            container.removeEventListener('touchstart', this.onTouchStart, { passive: true });
+            this.onTouchStart = null;
+        }
+        if (this.onTouchEnd) {
+            container.removeEventListener('touchend', this.onTouchEnd, { passive: true });
+            this.onTouchEnd = null;
         }
     },
 
@@ -101,6 +116,11 @@ const homeComponent = {
 
         if (this.isLoading && this.posts.length === 0) {
             container.appendChild(createEl('div', { className: 'loading-center' }, [createEl('div', { className: 'spinner' })]));
+            return;
+        }
+
+        if (this.loadError && this.posts.length === 0) {
+            container.appendChild(this.errorState());
             return;
         }
 
@@ -165,10 +185,28 @@ const homeComponent = {
         return state;
     },
 
+    errorState() {
+        const state = createEl('div', { className: 'empty-state feed-error' });
+        state.innerHTML = shell.icons.warning;
+        const title = createEl('h3', { text: 'Couldn\'t load feed' });
+        state.appendChild(title);
+        const message = createEl('p', { text: this.loadErrorMessage || 'Something went wrong. Pull down or tap Retry to try again.' });
+        state.appendChild(message);
+        const retry = createEl('button', { className: 'btn btn-primary', text: 'Retry' });
+        retry.addEventListener('click', () => {
+            this.hasLoaded = false;
+            this.loadData(this.mountToken);
+        });
+        state.appendChild(retry);
+        return state;
+    },
+
     async loadData(token) {
         if (this.isLoading) return;
         token = token || this.mountToken;
         this.isLoading = true;
+        this.loadError = null;
+        this.loadErrorMessage = '';
         this.page = 1;
         this.hasMore = true;
         this.posts = [];
@@ -209,6 +247,8 @@ const homeComponent = {
             this.hasLoaded = true;
         } catch (err) {
             if (!token || !token.isActive()) return;
+            this.loadError = err;
+            this.loadErrorMessage = err.message || 'Failed to load feed';
             console.error(err);
         } finally {
             this.isLoading = false;
@@ -247,6 +287,7 @@ const homeComponent = {
         } catch (err) {
             console.error(err);
             this.page -= 1;
+            this.hasMore = false;
         } finally {
             this.isLoading = false;
             const feed2 = document.getElementById('feed-container');

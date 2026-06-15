@@ -23,6 +23,7 @@ struct HomeView: View {
     @State private var selectedPostForComments: Post?
     @State private var feedFilter: FeedFilter = .mixed
     @State private var profileUser: User? = nil
+    @State private var feedLoadFailed: Bool = false
     
     /// Posts filtered by the selected segment (client-side until backend supports ?type=).
     private var filteredPosts: [Post] {
@@ -52,7 +53,9 @@ struct HomeView: View {
                     
                     feedFilterPicker
                     
-                    if filteredPosts.isEmpty && !isLoading {
+                    if feedLoadFailed {
+                        feedErrorCard
+                    } else if filteredPosts.isEmpty && !isLoading {
                         emptyState
                     } else {
                         ForEach(filteredPosts) { post in
@@ -161,9 +164,33 @@ struct HomeView: View {
             return "No text posts yet."
         }
     }
+
+    private var feedErrorCard: some View {
+        VStack(spacing: 16) {
+            Spacer().frame(height: 60)
+            Image(systemName: "exclamationmark.triangle")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 70, height: 70)
+                .foregroundStyle(.pink.opacity(0.6))
+            Text("Couldn’t load feed.")
+                .font(.headline)
+                .foregroundStyle(.secondary)
+            Button("Try Again") {
+                feedLoadFailed = false
+                Task {
+                    await loadFeed()
+                }
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(.pink)
+        }
+        .frame(maxWidth: .infinity)
+    }
     
     private func loadFeed() async {
         isLoading = true
+        feedLoadFailed = false
         do {
             posts = try await APIClient.shared.fetchFeed()
         } catch {
@@ -171,6 +198,7 @@ struct HomeView: View {
                 // Suppress cancellation alerts from SwiftUI lifecycle.
             } else {
                 errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+                feedLoadFailed = true
                 showError = true
             }
         }
