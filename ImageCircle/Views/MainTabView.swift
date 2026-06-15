@@ -28,8 +28,10 @@ struct MainTabView: View {
                 }
                 .tag(1)
             
-            CameraView(onPostCreated: {
-                refreshFeedTrigger = UUID()
+            CameraView(onFinished: { shouldRefresh in
+                if shouldRefresh {
+                    refreshFeedTrigger = UUID()
+                }
                 selectedTab = 0
             })
                 .tabItem {

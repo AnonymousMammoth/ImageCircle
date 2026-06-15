@@ -90,7 +90,9 @@ final class APIClient {
         let uploadConfig = URLSessionConfiguration.default
         uploadConfig.timeoutIntervalForRequest = 120
         uploadConfig.timeoutIntervalForResource = 300
-        self.uploadSession = URLSession(configuration: uploadConfig, delegate: uploadDelegate, delegateQueue: OperationQueue())
+        let delegateQueue = OperationQueue()
+        delegateQueue.maxConcurrentOperationCount = 1
+        self.uploadSession = URLSession(configuration: uploadConfig, delegate: uploadDelegate, delegateQueue: delegateQueue)
     }
     
     // MARK: - Base URL
@@ -134,7 +136,7 @@ final class APIClient {
         } catch let error as APIError {
             throw error
         } catch {
-            if Task.isCancelled { throw APIError.cancelled }
+            if Task.isCancelled || isCancellationError(error) { throw APIError.cancelled }
             if retry && shouldRetry(error) {
                 try await Task.sleep(nanoseconds: 500_000_000)
                 return try await perform(request, session: session, retry: false)
@@ -151,7 +153,7 @@ final class APIClient {
         } catch let error as APIError {
             throw error
         } catch {
-            if Task.isCancelled { throw APIError.cancelled }
+            if Task.isCancelled || isCancellationError(error) { throw APIError.cancelled }
             if retry && shouldRetry(error) {
                 try await Task.sleep(nanoseconds: 500_000_000)
                 try await performVoid(request, session: session, retry: false)
@@ -215,7 +217,15 @@ final class APIClient {
         }
     }
     
+    private func isCancellationError(_ error: Error) -> Bool {
+        if error is CancellationError { return true }
+        if let apiError = error as? APIError, apiError == .cancelled { return true }
+        if let urlError = error as? URLError, urlError.code == .cancelled { return true }
+        return false
+    }
+    
     private func upload<T: Decodable>(_ request: URLRequest, fromFile fileURL: URL, progress: (@Sendable (Double) -> Void)? = nil) async throws -> T {
+        guard !Task.isCancelled else { throw APIError.cancelled }
         let taskBox = TaskBox()
         
         do {
@@ -232,7 +242,7 @@ final class APIClient {
             }
             return try await handleResponse(data: data, response: response)
         } catch {
-            if Task.isCancelled { throw APIError.cancelled }
+            if Task.isCancelled || isCancellationError(error) { throw APIError.cancelled }
             throw error
         }
     }
@@ -317,6 +327,38 @@ final class APIClient {
     }
     
     // MARK: - Feed & Posts
+    
+    /// Uploads a compressed photo to the feed with optional thumbnail and progress reporting (0.0...1.0).
+    func createPost(caption: String?, imageData: Data, thumbnailData: Data? = nil, filename: String = "image.jpg", progress: (@Sendable (Double) -> Void)? = nil) async throws -> Post {
+        let url = try apiURL(path: "posts")
+        let boundary = UUID().uuidString
+        var req = request(for: url, method: "POST", contentType: "multipart/form-data; boundary=\(boundary)")
+
+        var body = Data()
+        body.appendString("--\(boundary)\r\n")
+        body.appendString("Content-Disposition: form-data; name=\"caption\"\r\n\r\n")
+        body.appendString("\(caption ?? "")\r\n")
+
+        body.appendString("--\(boundary)\r\n")
+        body.appendString("Content-Disposition: form-data; name=\"media\"; filename=\"\(filename)\"\r\n")
+        body.appendString("Content-Type: image/jpeg\r\n\r\n")
+        body.append(imageData)
+        body.appendString("\r\n")
+
+        if let thumbnailData = thumbnailData {
+            body.appendString("--\(boundary)\r\n")
+            body.appendString("Content-Disposition: form-data; name=\"thumbnail\"; filename=\"thumb.jpg\"\r\n")
+            body.appendString("Content-Type: image/jpeg\r\n\r\n")
+            body.append(thumbnailData)
+            body.appendString("\r\n")
+        }
+
+        body.appendString("--\(boundary)--\r\n")
+
+        let (fileURL, cleanup) = try writeToTempFile(data: body, name: "upload-\(boundary).body")
+        defer { cleanup() }
+        return try await upload(req, fromFile: fileURL, progress: progress)
+    }
     
     func fetchFeed() async throws -> [Post] {
         let url = try apiURL(path: "posts")
@@ -421,16 +463,7 @@ final class APIClient {
     
     // MARK: - Multipart Uploads
     
-    /// Uploads a compressed photo to the feed with optional progress reporting (0.0...1.0).
-    func createPost(caption: String?, imageData: Data, filename: String = "image.jpg", progress: (@Sendable (Double) -> Void)? = nil) async throws -> Post {
-        let url = try apiURL(path: "posts")
-        let boundary = UUID().uuidString
-        var req = request(for: url, method: "POST", contentType: "multipart/form-data; boundary=\(boundary)")
-        let body = buildMultipartBody(boundary: boundary, fields: ["caption": caption ?? ""], fileData: imageData, fileField: "media", filename: filename, mimeType: "image/jpeg")
-        let (fileURL, cleanup) = try writeToTempFile(data: body, name: "upload-\(boundary).body")
-        defer { cleanup() }
-        return try await upload(req, fromFile: fileURL, progress: progress)
-    }
+
     
     private func writeToTempFile(data: Data, name: String) throws -> (URL, () -> Void) {
         let fileURL = FileManager.default.temporaryDirectory.appendingPathComponent(name)
@@ -446,7 +479,7 @@ final class APIClient {
         let body = ["caption": caption]
         let data = try jsonEncoder.encode(body)
         let req = request(for: url, method: "POST", body: data)
-        return try await perform(req, session: uploadSession)
+        return try await perform(req)
     }
     
     /// Uploads a story image or video with optional thumbnail and optional progress reporting.

@@ -24,6 +24,7 @@ struct MediaPreviewView: View {
     @State private var showCancelConfirm = false
     @State private var retryAsFeed: Bool = false
     @State private var videoPlayer: AVPlayer?
+    @State private var uploadTask: Task<Void, Never>?
     @Environment(\.dismiss) private var dismiss
     
     var body: some View {
@@ -72,7 +73,10 @@ struct MediaPreviewView: View {
                 Text(errorMessage ?? "Upload failed.")
             }
             .confirmationDialog("Cancel upload?", isPresented: $showCancelConfirm, titleVisibility: .visible) {
-                Button("Cancel Upload", role: .destructive) { dismiss() }
+                Button("Cancel Upload", role: .destructive) {
+                    uploadTask?.cancel()
+                    dismiss()
+                }
                 Button("Keep Uploading", role: .cancel) {}
             }
             .onAppear {
@@ -84,6 +88,7 @@ struct MediaPreviewView: View {
             .onDisappear {
                 videoPlayer?.pause()
                 videoPlayer = nil
+                uploadTask?.cancel()
             }
         }
     }
@@ -156,13 +161,18 @@ struct MediaPreviewView: View {
         isUploading = true
         uploadProgress = 0
         
-        Task {
+        uploadTask = Task {
             do {
                 if asFeed, let image = image {
                     uploadProgress = 0.1
                     let data = try await compressPhoto(image)
+                    let thumbData = squareThumbnailData(from: image)
                     uploadProgress = 0.2
-                    _ = try await APIClient.shared.createPost(caption: caption, imageData: data) { progress in
+                    _ = try await APIClient.shared.createPost(
+                        caption: caption,
+                        imageData: data,
+                        thumbnailData: thumbData
+                    ) { progress in
                         Task { @MainActor in
                             self.uploadProgress = 0.2 + 0.8 * progress
                         }
@@ -198,10 +208,48 @@ struct MediaPreviewView: View {
                 dismiss()
             } catch {
                 isUploading = false
+                if Task.isCancelled || error is CancellationError {
+                    // User cancelled; don't show an error.
+                    dismiss()
+                    return
+                }
+                if let apiError = error as? APIError, apiError == .cancelled {
+                    dismiss()
+                    return
+                }
                 errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
                 showError = true
             }
         }
+    }
+    
+    /// Creates a center-cropped square JPEG thumbnail, max 512px.
+    private func squareThumbnailData(from image: UIImage, maxPixelSize: CGFloat = 512) -> Data? {
+        guard let cgImage = image.cgImage else { return nil }
+        
+        let width = CGFloat(cgImage.width)
+        let height = CGFloat(cgImage.height)
+        let minDim = min(width, height)
+        
+        let cropRect = CGRect(
+            x: (width - minDim) / 2,
+            y: (height - minDim) / 2,
+            width: minDim,
+            height: minDim
+        )
+        
+        guard let croppedCG = cgImage.cropping(to: cropRect) else { return nil }
+        
+        let scale = min(1.0, maxPixelSize / minDim)
+        let newSize = CGSize(width: minDim * scale, height: minDim * scale)
+        
+        let renderer = UIGraphicsImageRenderer(size: newSize)
+        let resized = renderer.image { _ in
+            UIImage(cgImage: croppedCG, scale: 1.0, orientation: image.imageOrientation)
+                .draw(in: CGRect(origin: .zero, size: newSize))
+        }
+        
+        return resized.jpegData(compressionQuality: 0.85)
     }
 }
 

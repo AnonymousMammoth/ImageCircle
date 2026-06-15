@@ -81,10 +81,13 @@ struct HomeView: View {
                 }
             }
             .sheet(isPresented: $showCamera) {
-                CameraView(onPostCreated: {
-                    Task {
-                        await loadFeed()
-                        await loadStories()
+                CameraView(onFinished: { shouldRefresh in
+                    showCamera = false
+                    if shouldRefresh {
+                        Task {
+                            await loadFeed()
+                            await loadStories()
+                        }
                     }
                 })
             }
@@ -93,12 +96,10 @@ struct HomeView: View {
             } message: {
                 Text(errorMessage ?? "Something went wrong.")
             }
-            .task {
+            .task(id: refreshTrigger) {
                 await loadFeed()
+                guard !Task.isCancelled else { return }
                 await loadStories()
-            }
-            .onChange(of: refreshTrigger) {
-                Task { await loadFeed() }
             }
         }
     }
@@ -146,8 +147,12 @@ struct HomeView: View {
         do {
             posts = try await APIClient.shared.fetchFeed()
         } catch {
-            errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
-            showError = true
+            if Task.isCancelled || error is CancellationError || (error as? APIError) == .cancelled {
+                // Suppress cancellation alerts from SwiftUI lifecycle.
+            } else {
+                errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+                showError = true
+            }
         }
         isLoading = false
     }

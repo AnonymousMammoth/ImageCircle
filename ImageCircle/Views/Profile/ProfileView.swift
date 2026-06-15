@@ -15,6 +15,7 @@ struct ProfileView: View {
     @StateObject private var auth = AuthManager.shared
     @State private var posts: [Post] = []
     @State private var selectedPost: Post?
+    @State private var commentPost: Post?
     @State private var showSettings = false
     @State private var isLoading = false
     @State private var filter: FeedFilter = .mixed
@@ -64,6 +65,9 @@ struct ProfileView: View {
         }
         .sheet(item: $selectedPost) { post in
             ProfilePostDetailView(post: post)
+        }
+        .sheet(item: $commentPost) { post in
+            CommentsSheetView(post: post)
         }
         .task {
             await loadPosts()
@@ -155,6 +159,29 @@ struct ProfileView: View {
     }
     
     private var postGrid: some View {
+        Group {
+            if filter == .text {
+                textFeed
+            } else {
+                imageGrid
+            }
+        }
+    }
+    
+    private var textFeed: some View {
+        LazyVStack(spacing: 0) {
+            ForEach(filteredPosts) { post in
+                PostCardView(
+                    post: post,
+                    onLikeChanged: { Task { await loadPosts() } },
+                    onCommentTapped: { commentPost = post }
+                )
+                .id(post.id)
+            }
+        }
+    }
+    
+    private var imageGrid: some View {
         LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 1), count: 3), spacing: 1) {
             ForEach(filteredPosts) { post in
                 Button(action: { selectedPost = post }) {
@@ -162,35 +189,44 @@ struct ProfileView: View {
                         textPostCell(for: post)
                     } else if let filename = effectiveThumbnailFilename(for: post),
                               let url = MediaURL.url(userID: post.user.id, filename: filename) {
-                        KFImage(url)
-                            .resizable()
-                            .placeholder { Color(.systemGray4) }
-                            .onFailure { error in
-                                print("[KFImage] Failed to load \(url): \(error)")
-                            }
-                            .aspectRatio(contentMode: .fill)
-                            .frame(maxWidth: .infinity)
-                            .aspectRatio(1, contentMode: .fit)
-                            .clipped()
+                        imageGridCell(for: post, url: url)
                     } else {
                         Color(.systemGray4)
-                            .frame(maxWidth: .infinity)
+                            .frame(maxWidth: .infinity, minHeight: 0)
                             .aspectRatio(1, contentMode: .fit)
                     }
                 }
                 .buttonStyle(.plain)
+                .aspectRatio(1, contentMode: .fit)
                 .accessibilityLabel("View post \(post.id)")
             }
         }
     }
     
+    private func imageGridCell(for post: Post, url: URL) -> some View {
+        GeometryReader { geo in
+            KFImage(url)
+                .resizable()
+                .placeholder { Color(.systemGray4) }
+                .onFailure { error in
+                    print("[KFImage] Failed to load post \(post.id) at \(url): \(error)")
+                }
+                .scaledToFill()
+                .frame(width: geo.size.width, height: geo.size.width)
+                .clipped()
+        }
+    }
+    
     private func effectiveThumbnailFilename(for post: Post) -> String? {
         if let thumbnail = post.thumbnailFilename, !thumbnail.isEmpty {
+            print("[Profile] post \(post.id) using thumbnail: \(thumbnail)")
             return thumbnail
         }
         if let media = post.mediaFilename, !media.isEmpty {
+            print("[Profile] post \(post.id) falling back to media: \(media)")
             return media
         }
+        print("[Profile] post \(post.id) has no media/thumbnail")
         return nil
     }
     
@@ -212,8 +248,7 @@ struct ProfileView: View {
                 }
             }
         }
-        .frame(maxWidth: .infinity)
-        .aspectRatio(1, contentMode: .fit)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
     
     private func loadPosts() async {
@@ -223,17 +258,25 @@ struct ProfileView: View {
         do {
             // Try the dedicated user-posts endpoint first (added in newer backends).
             posts = try await APIClient.shared.fetchUserPosts(userID: displayUser.id)
+            print("[Profile] loaded \(posts.count) posts")
+            for post in posts {
+                print("  post \(post.id): isTextOnly=\(post.isTextOnly), media=\(post.mediaFilename ?? "-"), thumb=\(post.thumbnailFilename ?? "-")")
+            }
         } catch {
+            if Task.isCancelled || error is CancellationError || (error as? APIError) == .cancelled {
+                return
+            }
             // Fall back to filtering the global feed for older backends.
             do {
                 let feed = try await APIClient.shared.fetchFeed()
                 posts = feed.filter { $0.user.id == displayUser.id }
             } catch {
                 posts = []
-                if !Task.isCancelled {
-                    loadErrorMessage = error.localizedDescription
-                    showLoadError = true
+                if Task.isCancelled || error is CancellationError || (error as? APIError) == .cancelled {
+                    return
                 }
+                loadErrorMessage = error.localizedDescription
+                showLoadError = true
             }
         }
     }
@@ -271,6 +314,8 @@ struct ProfileView: View {
             auth.currentUser = updatedUser
         } catch is CancellationError {
             // Ignore cancellation; the request may have already completed on the server.
+        } catch let error as APIError where error == .cancelled {
+            // Ignore cancellation.
         } catch {
             avatarErrorMessage = error.localizedDescription
             showAvatarError = true
