@@ -95,15 +95,23 @@ func avatarImage(url: URL?) -> some View {
 
 // MARK: - Reusable Avatar
 
+/// Common avatar data needed by `AvatarImage`.
+protocol AvatarDisplayable {
+    var username: String { get }
+    var avatarURL: String? { get }
+}
+
+extension User: AvatarDisplayable {}
+extension NotificationActor: AvatarDisplayable {}
+
 struct AvatarImage: View {
-    let user: User
+    let user: AvatarDisplayable
     let size: CGFloat
-    
+
     var body: some View {
         Group {
-            if let filename = user.avatarFilename,
-               !filename.isEmpty,
-               let url = MediaURL.url(userID: user.id, filename: filename) {
+            if let urlString = user.avatarURL, !urlString.isEmpty,
+               let url = URL(string: urlString), url.scheme != nil {
                 KFImage(url)
                     .resizable()
                     .placeholder { placeholderAvatar(name: user.username) }

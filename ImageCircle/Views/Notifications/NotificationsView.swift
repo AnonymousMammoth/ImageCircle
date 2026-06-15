@@ -24,19 +24,23 @@ struct NotificationsView: View {
                         HStack(spacing: 12) {
                             actorAvatar(for: notification.actor)
                                 .frame(width: 44, height: 44)
-                            
+
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(notificationText(for: notification))
                                     .font(.subheadline)
                                     .multilineTextAlignment(.leading)
                                     .foregroundStyle(.primary)
-                                
+
                                 Text(notification.createdAt.relativeTimeFromISO())
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }
-                            
+
                             Spacer()
+
+                            notificationThumbnail(for: notification.post)
+                                .frame(width: 48, height: 48)
+                                .clipShape(RoundedRectangle(cornerRadius: 6))
                         }
                     }
                     .buttonStyle(.plain)
@@ -68,8 +72,40 @@ struct NotificationsView: View {
     }
     
     @ViewBuilder
-    private func actorAvatar(for user: User) -> some View {
-        AvatarImage(user: user, size: 44)
+    private func actorAvatar(for actor: NotificationActor) -> some View {
+        AvatarImage(user: actor, size: 44)
+    }
+
+    @ViewBuilder
+    private func notificationThumbnail(for post: NotificationPost) -> some View {
+        if let url = resolvedPostURL(for: post) {
+            KFImage(url)
+                .resizable()
+                .placeholder { Color(.systemGray4) }
+                .aspectRatio(contentMode: .fill)
+        } else {
+            Image(systemName: "quote.bubble")
+                .resizable()
+                .scaledToFit()
+                .padding(10)
+                .foregroundStyle(.secondary)
+                .background(Color(.systemGray4))
+        }
+    }
+
+    private func resolvedPostURL(for post: NotificationPost) -> URL? {
+        let candidates = [post.thumbnailURL, post.mediaURL].compactMap { $0 }
+        guard let base = UserDefaults.standard.string(forKey: "server_url"), !base.isEmpty else { return nil }
+        for path in candidates {
+            guard !path.isEmpty else { continue }
+            if let url = URL(string: path), url.scheme != nil {
+                return url
+            }
+            if let url = URL(string: base + path) {
+                return url
+            }
+        }
+        return nil
     }
     
     private func notificationText(for notification: AppNotification) -> AttributedString {

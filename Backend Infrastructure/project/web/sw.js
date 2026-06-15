@@ -14,6 +14,7 @@ const SHELL_ASSETS = [
   '/js/components/storyViewer.js',
   '/js/components/postCard.js',
   '/js/components/comments.js',
+  '/js/components/postDetail.js',
   '/js/components/composer.js',
   '/js/components/camera.js',
   '/js/components/profile.js',
@@ -42,9 +43,10 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(request.url);
 
-  // API and media: always try network first; offline users see errors gracefully.
+  // API and media are authenticated: never serve from cache to avoid leaking
+  // notifications, posts, or media across sessions/users.
   if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/media/')) {
-    event.respondWith(fetch(request).catch(() => caches.match(request)));
+    event.respondWith(fetch(request));
     return;
   }
 

@@ -95,8 +95,11 @@ const notificationsComponent = {
         }
 
         item.addEventListener('click', () => {
-            const targetUserId = (post && post.user_id) || actor.id;
-            if (targetUserId) router.navigate('/profile/' + targetUserId);
+            if (post && post.id) {
+                router.navigate('/post/' + post.id);
+            } else if (actor.id) {
+                router.navigate('/profile/' + actor.id);
+            }
         });
 
         return item;

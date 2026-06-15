@@ -231,6 +231,8 @@ const shell = {
             notificationsComponent.render(content);
         } else if (path === '/profile' || path.startsWith('/profile/')) {
             profileComponent.render(content, router.params.id);
+        } else if (path === '/post' || path.startsWith('/post/')) {
+            postDetailComponent.render(content, router.params.postId);
         } else if (path === '/settings') {
             settingsComponent.render(content);
         } else {

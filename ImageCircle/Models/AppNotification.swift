@@ -10,11 +10,11 @@ import Foundation
 struct AppNotification: Codable, Identifiable {
     let id: String
     let type: String
-    let actor: User
+    let actor: NotificationActor
     let post: NotificationPost
     let comment: NotificationComment?
     let createdAt: String
-    
+
     enum CodingKeys: String, CodingKey {
         case id
         case type
@@ -23,11 +23,26 @@ struct AppNotification: Codable, Identifiable {
         case comment
         case createdAt = "created_at"
     }
-    
+
     var isLike: Bool { type == "like" }
     var isComment: Bool { type == "comment" }
     var isMentionPost: Bool { type == "mention_post" }
     var isMentionComment: Bool { type == "mention_comment" }
+}
+
+/// Minimal, privacy-safe actor used in notification payloads.
+struct NotificationActor: Codable, Identifiable {
+    let id: Int
+    let username: String
+    let displayName: String
+    let avatarURL: String?
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case username
+        case displayName = "display_name"
+        case avatarURL = "avatar_url"
+    }
 }
 
 /// Minimal post representation used in notification payloads.
@@ -38,7 +53,7 @@ struct NotificationPost: Codable, Identifiable {
     let mediaURL: String?
     let thumbnailURL: String?
     let createdAt: String
-    
+
     enum CodingKeys: String, CodingKey {
         case id
         case userId = "user_id"
@@ -54,10 +69,11 @@ struct NotificationComment: Codable, Identifiable {
     let id: Int
     let text: String
     let createdAt: String
-    
+
     enum CodingKeys: String, CodingKey {
         case id
         case text
         case createdAt = "created_at"
     }
 }
+
