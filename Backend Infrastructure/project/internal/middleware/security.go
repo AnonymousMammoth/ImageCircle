@@ -26,7 +26,10 @@ func SecurityHeaders(allowedOrigin string) gin.HandlerFunc {
 
 	return func(c *gin.Context) {
 		// HTTP Strict Transport Security (HSTS) — 2 years, include subdomains
-		c.Header("Strict-Transport-Security", "max-age=63072000; includeSubDomains")
+		// Only send over HTTPS to avoid leaking the header on plaintext connections.
+		if c.Request.TLS != nil {
+			c.Header("Strict-Transport-Security", "max-age=63072000; includeSubDomains")
+		}
 
 		// Prevent MIME type sniffing
 		c.Header("X-Content-Type-Options", "nosniff")
@@ -43,8 +46,8 @@ func SecurityHeaders(allowedOrigin string) gin.HandlerFunc {
 		// Disable deprecated XSS filter (can be abused)
 		c.Header("X-XSS-Protection", "0")
 
-		// Restrict browser features
-		c.Header("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+		// Restrict browser features; allow camera/mic for the in-app web UI camera.
+		c.Header("Permissions-Policy", "camera=(self), microphone=(self), geolocation=()")
 
 		c.Next()
 	}

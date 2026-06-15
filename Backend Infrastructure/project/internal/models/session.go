@@ -72,6 +72,12 @@ func DeleteSession(db *sql.DB, token string) error {
 	return nil
 }
 
+// DeleteSessionByToken removes a session by its token.
+// It is an alias for DeleteSession and exists to make call sites explicit.
+func DeleteSessionByToken(db *sql.DB, token string) error {
+	return DeleteSession(db, token)
+}
+
 // DeleteSessionsForUser removes all sessions belonging to a user.
 func DeleteSessionsForUser(db *sql.DB, userID int64) error {
 	query := `DELETE FROM sessions WHERE user_id = ?`
@@ -80,6 +86,12 @@ func DeleteSessionsForUser(db *sql.DB, userID int64) error {
 		return fmt.Errorf("delete sessions for user: %w", err)
 	}
 	return nil
+}
+
+// DeleteSessionsByUserID removes all sessions belonging to a user.
+// It is an alias for DeleteSessionsForUser and exists to make call sites explicit.
+func DeleteSessionsByUserID(db *sql.DB, userID int64) error {
+	return DeleteSessionsForUser(db, userID)
 }
 
 // DeleteExpiredSessions removes all sessions whose expires_at has passed.

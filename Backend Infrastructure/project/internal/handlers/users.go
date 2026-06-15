@@ -278,6 +278,12 @@ func (h *UserHandler) ResetPassword(c *gin.Context) {
 		return
 	}
 
+	// Invalidate all sessions for the affected user.
+	if err := models.DeleteSessionsByUserID(h.DB, id); err != nil {
+		utils.RespondError(c, http.StatusInternalServerError, "failed to invalidate sessions")
+		return
+	}
+
 	utils.RespondJSON(c, http.StatusOK, gin.H{
 		"temporary_password": tempPassword,
 	})
@@ -308,6 +314,12 @@ func (h *UserHandler) ToggleAdmin(c *gin.Context) {
 			return
 		}
 		utils.RespondError(c, http.StatusInternalServerError, "failed to toggle admin status")
+		return
+	}
+
+	// Invalidate all sessions for the affected user.
+	if err := models.DeleteSessionsByUserID(h.DB, id); err != nil {
+		utils.RespondError(c, http.StatusInternalServerError, "failed to invalidate sessions")
 		return
 	}
 

@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"fmt"
+	"net"
 	"net/http"
 	"sync"
 	"time"
@@ -20,19 +21,33 @@ type bucket struct {
 // RateLimiter implements an in-memory token bucket rate limiter.
 // It is safe for concurrent use.
 type RateLimiter struct {
-	buckets map[string]*bucket
-	mu      sync.RWMutex
-	limit   int
-	refill  time.Duration
+	buckets     map[string]*bucket
+	mu          sync.RWMutex
+	limit       int
+	refill      time.Duration
+	ipExtractor func(*gin.Context) string
 }
 
 // NewRateLimiter creates a new RateLimiter with the specified requests-per-minute limit.
 // It also starts a background goroutine to clean up stale buckets every 5 minutes.
+// The client IP is derived from gin's c.ClientIP().
 func NewRateLimiter(requestsPerMinute int) *RateLimiter {
+	return NewRateLimiterWithExtractor(requestsPerMinute, nil)
+}
+
+// NewRateLimiterWithExtractor creates a new RateLimiter with a custom IP extractor.
+// If extractor is nil, it defaults to gin's c.ClientIP().
+func NewRateLimiterWithExtractor(requestsPerMinute int, extractor func(*gin.Context) string) *RateLimiter {
+	if extractor == nil {
+		extractor = func(c *gin.Context) string {
+			return c.ClientIP()
+		}
+	}
 	rl := &RateLimiter{
-		buckets: make(map[string]*bucket),
-		limit:   requestsPerMinute,
-		refill:  time.Minute,
+		buckets:     make(map[string]*bucket),
+		limit:       requestsPerMinute,
+		refill:      time.Minute,
+		ipExtractor: extractor,
 	}
 	go rl.cleanup()
 	return rl
@@ -43,7 +58,7 @@ func NewRateLimiter(requestsPerMinute int) *RateLimiter {
 // If the limit is exceeded, it returns 429 Too Many Requests with a Retry-After header.
 func (rl *RateLimiter) Middleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		key := utils.HashIP(c.ClientIP())
+		key := utils.HashIP(rl.ipExtractor(c))
 
 		allowed, retryAfter := rl.allow(key)
 		if !allowed {
@@ -56,6 +71,16 @@ func (rl *RateLimiter) Middleware() gin.HandlerFunc {
 
 		c.Next()
 	}
+}
+
+// ClientIPFromRemoteAddr returns the client IP from the connection's RemoteAddr,
+// ignoring proxy headers such as X-Forwarded-For.
+func ClientIPFromRemoteAddr(c *gin.Context) string {
+	ip, _, err := net.SplitHostPort(c.Request.RemoteAddr)
+	if err != nil {
+		return c.Request.RemoteAddr
+	}
+	return ip
 }
 
 // allow checks whether the given key has a token available.

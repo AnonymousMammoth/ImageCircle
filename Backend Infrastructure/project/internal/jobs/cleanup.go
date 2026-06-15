@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"circle/internal/models"
@@ -23,6 +24,7 @@ type CleanupJob struct {
 	interval   time.Duration
 	logger     *slog.Logger
 	stopCh     chan struct{}
+	stopOnce   sync.Once
 }
 
 // NewCleanupJob creates a new cleanup job runner.
@@ -64,9 +66,11 @@ func (j *CleanupJob) Start(ctx context.Context) {
 	}()
 }
 
-// Stop signals the job to stop.
+// Stop signals the job to stop. It is safe to call multiple times.
 func (j *CleanupJob) Stop() {
-	close(j.stopCh)
+	j.stopOnce.Do(func() {
+		close(j.stopCh)
+	})
 }
 
 // runCleanup performs one cleanup cycle:

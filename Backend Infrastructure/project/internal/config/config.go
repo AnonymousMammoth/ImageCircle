@@ -19,6 +19,7 @@ type Config struct {
 	RateLimit     int
 	PasswordCost  int
 	ServerBind    string
+	TrustProxy    bool
 }
 
 // Load reads configuration from environment variables with sensible defaults.
@@ -61,6 +62,15 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("invalid CIRCLE_PASSWORD_COST: %w", err)
 	}
 
+	trustProxy := false
+	if v := os.Getenv("CIRCLE_TRUST_PROXY"); v != "" {
+		b, err := strconv.ParseBool(v)
+		if err != nil {
+			return nil, fmt.Errorf("invalid CIRCLE_TRUST_PROXY: %w", err)
+		}
+		trustProxy = b
+	}
+
 	cfg := &Config{
 		Port:          port,
 		DataDir:       dataDir,
@@ -73,6 +83,7 @@ func Load() (*Config, error) {
 		RateLimit:     rateLimit,
 		PasswordCost:  passwordCost,
 		ServerBind:    "", // all interfaces
+		TrustProxy:    trustProxy,
 	}
 
 	return cfg, nil

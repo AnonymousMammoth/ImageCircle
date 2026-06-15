@@ -22,6 +22,28 @@ import (
 	"circle/internal/storage"
 )
 
+// serveWebStatic serves a single file from root using a path parameter.
+// It prevents directory traversal and returns 404 for directories or missing files.
+func serveWebStatic(c *gin.Context, root, paramName string) {
+	rel := strings.TrimPrefix(c.Param(paramName), "/")
+	fullPath := filepath.Join(root, filepath.Clean(rel))
+
+	absPath, _ := filepath.Abs(fullPath)
+	absRoot, _ := filepath.Abs(root)
+	if !strings.HasPrefix(absPath, absRoot) {
+		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"error": "not found"})
+		return
+	}
+
+	info, err := os.Stat(fullPath)
+	if err != nil || info.IsDir() {
+		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"error": "not found"})
+		return
+	}
+
+	c.File(fullPath)
+}
+
 func main() {
 	// 1. Load configuration (fatal on error)
 	cfg, err := config.Load()
@@ -61,8 +83,13 @@ func main() {
 	// 6. Initialize media storage
 	mediaStore := storage.NewMediaStore(cfg.MediaDir)
 
-	// 7. Initialize rate limiter
-	rateLimiter := middleware.NewRateLimiter(cfg.RateLimit)
+	// 7. Initialize rate limiters
+	clientIPExtractor := middleware.ClientIPFromRemoteAddr
+	if cfg.TrustProxy {
+		clientIPExtractor = nil
+	}
+	rateLimiter := middleware.NewRateLimiterWithExtractor(cfg.RateLimit, clientIPExtractor)
+	strictRateLimiter := middleware.NewRateLimiterWithExtractor(10, clientIPExtractor)
 
 	// 8. Create gin router with middleware stack
 	router := gin.New()
@@ -78,6 +105,9 @@ func main() {
 
 	// Rate limiter
 	router.Use(rateLimiter.Middleware())
+
+	// Cache-Control: no-store for API responses containing auth/user data
+	router.Use(middleware.NoStoreCacheControl())
 
 	// CORS
 	router.Use(middleware.CORS(cfg.AllowedOrigin))
@@ -133,8 +163,8 @@ func main() {
 	})
 
 	// Public (no auth)
-	router.POST("/api/admin/setup", authHandler.Setup)
-	router.POST("/api/auth/login", authHandler.Login)
+	router.POST("/api/admin/setup", strictRateLimiter.Middleware(), authHandler.Setup)
+	router.POST("/api/auth/login", strictRateLimiter.Middleware(), authHandler.Login)
 
 	// Authenticated routes
 	auth := router.Group("/")
@@ -142,7 +172,7 @@ func main() {
 	{
 		// Auth
 		auth.POST("/api/auth/refresh", authHandler.Refresh)
-		auth.POST("/api/auth/change-password", authHandler.ChangePassword)
+		auth.POST("/api/auth/change-password", strictRateLimiter.Middleware(), authHandler.ChangePassword)
 		auth.POST("/api/auth/logout", authHandler.Logout)
 
 		// Users
@@ -217,9 +247,25 @@ func main() {
 		c.File(fullPath)
 	})
 
-	// Redirect root to /admin
+	// Serve web app assets (no directory listings, 404 for missing files)
+	router.StaticFile("/app.css", "./web/app.css")
+	router.GET("/js/*filepath", func(c *gin.Context) {
+		serveWebStatic(c, "./web/js", "filepath")
+	})
+
+	// Serve web app shell at root
 	router.GET("/", func(c *gin.Context) {
-		c.Redirect(http.StatusMovedPermanently, "/admin")
+		c.File("./web/index.html")
+	})
+
+	// SPA fallback: any unmatched non-API/non-admin/non-media path returns index.html
+	router.NoRoute(func(c *gin.Context) {
+		path := c.Request.URL.Path
+		if strings.HasPrefix(path, "/api/") || strings.HasPrefix(path, "/media/") || strings.HasPrefix(path, "/admin") {
+			c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+			return
+		}
+		c.File("./web/index.html")
 	})
 
 	// 11. Start cleanup job goroutine

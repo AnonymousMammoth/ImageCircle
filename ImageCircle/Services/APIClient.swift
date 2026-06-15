@@ -168,15 +168,6 @@ final class APIClient {
             throw APIError.invalidResponse
         }
 
-        // MARK: - Temporary Debug Logging
-        let urlString = http.url?.absoluteString ?? "unknown"
-        let statusCode = http.statusCode
-        let bodyString = String(data: data, encoding: .utf8) ?? "<non-UTF8 data>"
-        print("[TEMP DEBUG] Response URL: \(urlString)")
-        print("[TEMP DEBUG] HTTP Status: \(statusCode)")
-        print("[TEMP DEBUG] Response Body: \(bodyString)")
-        // MARK: - End Temporary Debug Logging
-
         switch http.statusCode {
         case 200...299:
             if allowEmpty && data.isEmpty {
@@ -188,12 +179,6 @@ final class APIClient {
             do {
                 return try jsonDecoder.decode(T.self, from: data)
             } catch {
-                // MARK: - Temporary Debug Logging
-                print("[TEMP DEBUG] JSON decoding failed for \(urlString): \(error)")
-                if let decodingError = error as? DecodingError {
-                    print("[TEMP DEBUG] DecodingError details: \(decodingError)")
-                }
-                // MARK: - End Temporary Debug Logging
                 throw APIError.decodingError(error)
             }
         case 401:

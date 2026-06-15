@@ -35,13 +35,14 @@ func New(dbPath string) (*DB, error) {
 	}
 
 	db := &DB{conn: conn}
-	if err := db.migrate(); err != nil {
-		_ = conn.Close()
-		return nil, fmt.Errorf("migrate: %w", err)
-	}
+	// Apply base schema first so migrations always run against an existing table structure.
 	if err := db.RunSchema(); err != nil {
 		_ = conn.Close()
 		return nil, fmt.Errorf("run schema: %w", err)
+	}
+	if err := db.migrate(); err != nil {
+		_ = conn.Close()
+		return nil, fmt.Errorf("migrate: %w", err)
 	}
 
 	return db, nil

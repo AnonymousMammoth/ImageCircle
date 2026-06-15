@@ -87,11 +87,21 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	})
 }
 
-// Refresh generates a new JWT token with extended expiry.
+// Refresh generates a new JWT token with extended expiry and revokes the current token.
 func (h *AuthHandler) Refresh(c *gin.Context) {
 	userID := c.GetInt64("user_id")
 	username := c.GetString("username")
 	isAdmin := c.GetBool("is_admin")
+
+	// Extract and revoke the current token so it cannot be used again.
+	authHeader := c.GetHeader("Authorization")
+	if authHeader != "" {
+		parts := strings.SplitN(authHeader, " ", 2)
+		if len(parts) == 2 && strings.EqualFold(parts[0], "Bearer") {
+			tokenString := parts[1]
+			_ = models.DeleteSessionByToken(h.DB, tokenString)
+		}
+	}
 
 	token, expiry, err := utils.GenerateToken(userID, username, isAdmin, h.JWTSecret)
 	if err != nil {
