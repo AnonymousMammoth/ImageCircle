@@ -159,6 +159,27 @@ func MarkStoryViewed(db *sql.DB, storyID, userID int64) error {
 	return nil
 }
 
+// ListAllStories returns every story (newest first) for admin moderation.
+func ListAllStories(db *sql.DB, limit, offset int) ([]*Story, error) {
+	query := `
+		SELECT
+			s.id, s.user_id, s.media_filename, s.thumbnail_filename, s.media_type, s.created_at, s.expires_at,
+			u.id, u.username, u.display_name, u.is_admin, u.password_change_required, u.avatar_filename, u.created_at,
+			(SELECT COUNT(*) FROM story_views WHERE story_id = s.id) AS view_count
+		FROM stories s
+		JOIN users u ON s.user_id = u.id
+		ORDER BY s.created_at DESC
+		LIMIT ? OFFSET ?
+	`
+	rows, err := db.Query(query, limit, offset)
+	if err != nil {
+		return nil, fmt.Errorf("query all stories: %w", err)
+	}
+	defer rows.Close()
+
+	return scanStories(rows, 0)
+}
+
 // DeleteStory removes a story by primary key.
 func DeleteStory(db *sql.DB, id int64) error {
 	query := `DELETE FROM stories WHERE id = ?`

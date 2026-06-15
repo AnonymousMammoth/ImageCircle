@@ -278,6 +278,10 @@ final class APIClient {
     private struct NotificationsResponse: Codable {
         let notifications: [AppNotification]
     }
+
+    private struct ContentItemsResponse<T: Codable>: Codable {
+        let items: [T]
+    }
     
     private struct LikeResponse: Codable {
         let liked: Bool
@@ -511,6 +515,44 @@ final class APIClient {
         let url = try apiURL(path: "users/\(id)/toggle-admin")
         let req = request(for: url, method: "POST")
         return try await perform(req)
+    }
+
+    // MARK: - Admin Content Moderation
+
+    func adminListContent(type: String, page: Int, limit: Int) async throws -> [Any] {
+        let url = try apiURL(path: "admin/content?type=\(type)&page=\(page)&limit=\(limit)")
+        let req = request(for: url)
+        switch type {
+        case "post":
+            let response: ContentItemsResponse<Post> = try await perform(req)
+            return response.items
+        case "story":
+            let response: ContentItemsResponse<Story> = try await perform(req)
+            return response.items
+        case "comment":
+            let response: ContentItemsResponse<Comment> = try await perform(req)
+            return response.items
+        default:
+            throw APIError.invalidResponse
+        }
+    }
+
+    func adminDeletePost(id: Int) async throws {
+        let url = try apiURL(path: "admin/content/posts/\(id)")
+        let req = request(for: url, method: "DELETE")
+        try await performVoid(req)
+    }
+
+    func adminDeleteStory(id: Int) async throws {
+        let url = try apiURL(path: "admin/content/stories/\(id)")
+        let req = request(for: url, method: "DELETE")
+        try await performVoid(req)
+    }
+
+    func adminDeleteComment(id: Int) async throws {
+        let url = try apiURL(path: "admin/content/comments/\(id)")
+        let req = request(for: url, method: "DELETE")
+        try await performVoid(req)
     }
     
     // MARK: - Delete

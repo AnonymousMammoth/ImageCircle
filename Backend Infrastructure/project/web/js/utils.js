@@ -266,7 +266,9 @@ function isOwnContent(userId, currentUser) {
 
 function canManageContent(userId, currentUser) {
     if (!currentUser) return false;
-    return !!currentUser.is_admin || String(currentUser.id) === String(userId);
+    // Admin deletion/management of other users' content now happens only in the
+    // admin moderation panel, so this helper is owner-only in the main UI.
+    return String(currentUser.id) === String(userId);
 }
 
 function createMountToken() {

@@ -118,6 +118,26 @@ func getCommentByIDTx(tx *sql.Tx, id int64) (*Comment, error) {
 	return scanComment(row)
 }
 
+// ListAllComments returns every comment (newest first) for admin moderation.
+func ListAllComments(db *sql.DB, limit, offset int) ([]*Comment, error) {
+	query := `
+		SELECT
+			c.id, c.post_id, c.user_id, c.text, c.created_at,
+			u.id, u.username, u.display_name, u.is_admin, u.password_change_required, u.avatar_filename, u.created_at
+		FROM comments c
+		JOIN users u ON c.user_id = u.id
+		ORDER BY c.created_at DESC
+		LIMIT ? OFFSET ?
+	`
+	rows, err := db.Query(query, limit, offset)
+	if err != nil {
+		return nil, fmt.Errorf("query all comments: %w", err)
+	}
+	defer rows.Close()
+
+	return scanComments(rows)
+}
+
 // DeleteComment removes a comment by primary key.
 func DeleteComment(db *sql.DB, id int64) error {
 	query := `DELETE FROM comments WHERE id = ?`

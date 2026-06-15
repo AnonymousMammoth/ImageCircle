@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import Kingfisher
 
 struct AdminView: View {
     @StateObject private var auth = AuthManager.shared
@@ -31,6 +32,12 @@ struct AdminView: View {
                 }
                 .listRowBackground(Color.pink)
                 .foregroundStyle(.white)
+            }
+
+            Section("Moderation") {
+                NavigationLink("Review Content") {
+                    ContentReviewView()
+                }
             }
             
             Section("Users") {
@@ -333,6 +340,269 @@ struct PasswordModal: View {
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
             copied = false
+        }
+    }
+}
+
+struct ContentReviewView: View {
+    @State private var selectedType: ContentType = .post
+    @State private var items: [Any] = []
+    @State private var isLoading = false
+    @State private var hasMore = true
+    @State private var page = 1
+    @State private var errorMessage: String?
+    @State private var showError = false
+    @State private var itemToDelete: DeletableItem?
+    @State private var showDeleteConfirm = false
+    
+    private let pageSize = 20
+    
+    enum ContentType: String, CaseIterable, Identifiable {
+        case post = "post"
+        case story = "story"
+        case comment = "comment"
+        
+        var id: String { rawValue }
+        var label: String {
+            switch self {
+            case .post: return "Posts"
+            case .story: return "Stories"
+            case .comment: return "Comments"
+            }
+        }
+    }
+    
+    struct DeletableItem: Identifiable {
+        let id: Int
+        let type: ContentType
+        let title: String
+    }
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            Picker("Type", selection: $selectedType) {
+                ForEach(ContentType.allCases) { type in
+                    Text(type.label).tag(type)
+                }
+            }
+            .pickerStyle(.segmented)
+            .padding()
+            
+            List {
+                ForEach(0..<items.count, id: \.self) { index in
+                    contentRow(for: items[index])
+                        .onAppear {
+                            if index >= items.count - 5 && hasMore && !isLoading {
+                                loadMore()
+                            }
+                        }
+                }
+                
+                if isLoading {
+                    ProgressView()
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                }
+            }
+            .listStyle(.plain)
+        }
+        .navigationTitle("Review Content")
+        .navigationBarTitleDisplayMode(.inline)
+        .onChange(of: selectedType) { _, _ in
+            resetAndLoad()
+        }
+        .onAppear {
+            resetAndLoad()
+        }
+        .alert("Error", isPresented: $showError) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(errorMessage ?? "Could not load content.")
+        }
+        .alert("Delete Content?", isPresented: $showDeleteConfirm, presenting: itemToDelete) { item in
+            Button("Cancel", role: .cancel) {}
+            Button("Delete", role: .destructive) {
+                deleteItem(item)
+            }
+        } message: { item in
+            Text("Are you sure you want to delete \(item.title)? This cannot be undone.")
+        }
+    }
+    
+    @ViewBuilder
+    private func contentRow(for item: Any) -> some View {
+        if let post = item as? Post {
+            postRow(post)
+        } else if let story = item as? Story {
+            storyRow(story)
+        } else if let comment = item as? Comment {
+            commentRow(comment)
+        } else {
+            EmptyView()
+        }
+    }
+    
+    private func postRow(_ post: Post) -> some View {
+        HStack(spacing: 12) {
+            let mediaURL = post.thumbnailFilename.flatMap { MediaURL.url(userID: post.user.id, filename: $0) }
+                ?? post.mediaFilename.flatMap { MediaURL.url(userID: post.user.id, filename: $0) }
+            if let url = mediaURL {
+                KFImage(url)
+                    .resizable()
+                    .placeholder { Color.gray }
+                    .aspectRatio(contentMode: .fill)
+                    .frame(width: 60, height: 60)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+            } else {
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color.gray.opacity(0.3))
+                    .frame(width: 60, height: 60)
+                    .overlay(Text("Text").font(.caption))
+            }
+            
+            VStack(alignment: .leading, spacing: 4) {
+                Text(post.user.username)
+                    .font(.subheadline.weight(.semibold))
+                Text(post.caption?.isEmpty == false ? post.caption! : "No caption")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+                Text(post.createdAt.relativeTimeFromISO())
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+            
+            Spacer()
+            
+            Button {
+                prepareDelete(id: post.id, type: .post, title: "this post")
+            } label: {
+                Image(systemName: "trash")
+                    .foregroundStyle(.red)
+            }
+        }
+        .padding(.vertical, 4)
+    }
+    
+    private func storyRow(_ story: Story) -> some View {
+        HStack(spacing: 12) {
+            if let url = story.resolvedThumbnailURL ?? story.resolvedMediaURL {
+                KFImage(url)
+                    .resizable()
+                    .placeholder { Color.gray }
+                    .aspectRatio(contentMode: .fill)
+                    .frame(width: 60, height: 60)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+            } else {
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color.gray.opacity(0.3))
+                    .frame(width: 60, height: 60)
+            }
+            
+            VStack(alignment: .leading, spacing: 4) {
+                Text(story.user.username)
+                    .font(.subheadline.weight(.semibold))
+                Text(story.mediaType.capitalized)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Text(story.createdAt.relativeTimeFromISO())
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+            
+            Spacer()
+            
+            Button {
+                prepareDelete(id: story.id, type: .story, title: "this story")
+            } label: {
+                Image(systemName: "trash")
+                    .foregroundStyle(.red)
+            }
+        }
+        .padding(.vertical, 4)
+    }
+    
+    private func commentRow(_ comment: Comment) -> some View {
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(comment.user.username)
+                    .font(.subheadline.weight(.semibold))
+                Text(comment.text)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(3)
+                Text(comment.createdAt.relativeTimeFromISO())
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+            
+            Spacer()
+            
+            Button {
+                prepareDelete(id: comment.id, type: .comment, title: "this comment")
+            } label: {
+                Image(systemName: "trash")
+                    .foregroundStyle(.red)
+            }
+        }
+        .padding(.vertical, 4)
+    }
+    
+    private func prepareDelete(id: Int, type: ContentType, title: String) {
+        itemToDelete = DeletableItem(id: id, type: type, title: title)
+        showDeleteConfirm = true
+    }
+    
+    private func resetAndLoad() {
+        page = 1
+        hasMore = true
+        items = []
+        loadMore()
+    }
+    
+    private func loadMore() {
+        guard !isLoading && hasMore else { return }
+        isLoading = true
+        
+        Task {
+            do {
+                let newItems = try await APIClient.shared.adminListContent(type: selectedType.rawValue, page: page, limit: pageSize)
+                await MainActor.run {
+                    items.append(contentsOf: newItems)
+                    hasMore = newItems.count == pageSize
+                    page += 1
+                    isLoading = false
+                }
+            } catch {
+                await MainActor.run {
+                    errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+                    showError = true
+                    isLoading = false
+                }
+            }
+        }
+    }
+    
+    private func deleteItem(_ item: DeletableItem) {
+        Task {
+            do {
+                switch item.type {
+                case .post:
+                    try await APIClient.shared.adminDeletePost(id: item.id)
+                case .story:
+                    try await APIClient.shared.adminDeleteStory(id: item.id)
+                case .comment:
+                    try await APIClient.shared.adminDeleteComment(id: item.id)
+                }
+                await MainActor.run {
+                    items.removeAll { ($0 as? Post)?.id == item.id || ($0 as? Story)?.id == item.id || ($0 as? Comment)?.id == item.id }
+                }
+            } catch {
+                await MainActor.run {
+                    errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+                    showError = true
+                }
+            }
         }
     }
 }

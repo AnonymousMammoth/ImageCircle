@@ -155,6 +155,28 @@ func GetPostsByUser(db *sql.DB, userID, requestingUserID int64, limit, offset in
 	return scanPosts(rows, requestingUserID)
 }
 
+// ListAllPosts returns every post (newest first) for admin moderation.
+func ListAllPosts(db *sql.DB, limit, offset int) ([]*Post, error) {
+	query := `
+		SELECT
+			p.id, p.user_id, p.caption, p.media_filename, p.thumbnail_filename, p.created_at,
+			u.id, u.username, u.display_name, u.is_admin, u.password_change_required, u.avatar_filename, u.created_at,
+			(SELECT COUNT(*) FROM likes WHERE post_id = p.id) AS like_count,
+			(SELECT COUNT(*) FROM comments WHERE post_id = p.id) AS comment_count
+		FROM posts p
+		JOIN users u ON p.user_id = u.id
+		ORDER BY p.created_at DESC
+		LIMIT ? OFFSET ?
+	`
+	rows, err := db.Query(query, limit, offset)
+	if err != nil {
+		return nil, fmt.Errorf("query all posts: %w", err)
+	}
+	defer rows.Close()
+
+	return scanPosts(rows, 0)
+}
+
 // DeletePost removes a post by primary key.
 func DeletePost(db *sql.DB, id int64) error {
 	query := `DELETE FROM posts WHERE id = ?`

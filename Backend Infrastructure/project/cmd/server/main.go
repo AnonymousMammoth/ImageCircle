@@ -259,6 +259,20 @@ func main() {
 		auth.GET("/api/admin/reports", middleware.AdminRequired(), reportHandler.ListReports)
 		auth.PUT("/api/admin/reports/:id", middleware.AdminRequired(), reportHandler.UpdateReport)
 
+		// Admin content moderation
+		adminContentHandler := &handlers.AdminContentHandler{
+			DB:         sqlDB,
+			MediaStore: mediaStore,
+		}
+		admin := auth.Group("/api/admin")
+		admin.Use(middleware.AdminRequired())
+		{
+			admin.GET("/content", adminContentHandler.ListContent)
+			admin.DELETE("/content/posts/:id", adminContentHandler.DeletePost)
+			admin.DELETE("/content/stories/:id", adminContentHandler.DeleteStory)
+			admin.DELETE("/content/comments/:id", adminContentHandler.DeleteComment)
+		}
+
 		// Media
 		auth.POST("/api/media", mediaHandler.Upload)
 		auth.GET("/media/*filepath", mediaHandler.Serve)

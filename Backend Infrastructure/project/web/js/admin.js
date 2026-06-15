@@ -25,6 +25,9 @@ const usersError    = $('#users-error');
 const reportsTbody  = $('#reports-tbody');
 const reportsError  = $('#reports-error');
 const reportsFilter = $('#reports-status-filter');
+const contentTypeFilter = $('#content-type-filter');
+const contentList = $('#content-list');
+const contentError = $('#content-error');
 const modalOverlay  = $('#modal-overlay');
 const modalContent  = $('#modal-content');
 const modalCloseBtn = $('#modal-close-btn');
@@ -130,6 +133,7 @@ function showApp() {
     adminUsername.textContent = escapeHtml(currentUser ? currentUser.username : '');
     loadStats();
     loadReports();
+    loadContentReview();
     loadUsers();
 }
 
@@ -226,6 +230,99 @@ function renderReports() {
             </td>
         `;
         reportsTbody.appendChild(tr);
+    }
+}
+
+/* ---------- Content Review ---------- */
+
+function mediaUrlWithToken(path) {
+    if (!path) return '';
+    return path + (path.indexOf('?') >= 0 ? '&' : '?') + 'token=' + encodeURIComponent(jwtToken || '');
+}
+
+async function loadContentReview() {
+    const type = contentTypeFilter ? contentTypeFilter.value : 'post';
+    try {
+        contentError.textContent = '';
+        const data = await apiCall('GET', '/admin/content?type=' + encodeURIComponent(type) + '&page=1&limit=50');
+        renderContentList(data && data.items ? data.items : [], type);
+    } catch (err) {
+        if (contentError) contentError.textContent = escapeHtml(err.message);
+        if (contentList) contentList.innerHTML = '';
+    }
+}
+
+function renderContentList(items, type) {
+    if (!contentList) return;
+    contentList.innerHTML = '';
+    if (!items.length) {
+        contentList.innerHTML = '<p style="color:var(--text-secondary);padding:1rem 0;">No content found.</p>';
+        return;
+    }
+
+    for (const item of items) {
+        const card = document.createElement('div');
+        card.className = 'content-card';
+        card.setAttribute('data-type', type);
+        card.setAttribute('data-id', item.id);
+
+        const author = item.user ? escapeHtml(item.user.username) : 'Unknown';
+        const date = escapeHtml(formatDate(item.created_at));
+
+        let bodyHtml = '';
+        if (type === 'post') {
+            const caption = escapeHtml(item.caption || '(no caption)');
+            const thumb = item.thumbnail_url || item.media_url || '';
+            const imgHtml = thumb ? `<img class="content-thumb" src="${escapeHtml(mediaUrlWithToken(thumb))}" alt="">` : '<div class="content-thumb content-thumb-placeholder">Text</div>';
+            bodyHtml = `
+                <div class="content-preview">${imgHtml}</div>
+                <div class="content-meta">
+                    <div class="content-author">@${author}</div>
+                    <div class="content-text">${caption}</div>
+                    <div class="content-date">${date}</div>
+                </div>
+            `;
+        } else if (type === 'story') {
+            const thumb = item.thumbnail_url || item.media_url || '';
+            const imgHtml = thumb ? `<img class="content-thumb" src="${escapeHtml(mediaUrlWithToken(thumb))}" alt="">` : '<div class="content-thumb content-thumb-placeholder">Media</div>';
+            bodyHtml = `
+                <div class="content-preview">${imgHtml}</div>
+                <div class="content-meta">
+                    <div class="content-author">@${author}</div>
+                    <div class="content-text">${escapeHtml(item.media_type || 'media')}</div>
+                    <div class="content-date">${date}</div>
+                </div>
+            `;
+        } else {
+            bodyHtml = `
+                <div class="content-meta">
+                    <div class="content-author">@${author}</div>
+                    <div class="content-text">${escapeHtml(item.text || '')}</div>
+                    <div class="content-date">${date}</div>
+                </div>
+            `;
+        }
+
+        card.innerHTML = `
+            ${bodyHtml}
+            <div class="content-actions">
+                <button class="btn btn-danger btn-small" data-action="delete-content" data-type="${escapeHtml(type)}" data-id="${escapeHtml(String(item.id))}">Delete</button>
+            </div>
+        `;
+        contentList.appendChild(card);
+    }
+}
+
+async function deleteContent(type, id) {
+    const labels = { post: 'this post', story: 'this story', comment: 'this comment' };
+    const confirmed = confirm('WARNING: This action cannot be undone.\n\nDelete ' + (labels[type] || 'this content') + '?');
+    if (!confirmed) return;
+
+    try {
+        await apiCall('DELETE', '/admin/content/' + type + 's/' + id);
+        loadContentReview();
+    } catch (err) {
+        if (contentError) contentError.textContent = escapeHtml(err.message);
     }
 }
 
@@ -441,6 +538,23 @@ reportsTbody.addEventListener('click', (e) => {
     if (action === 'view-report') viewReport(reportId);
     else if (action === 'resolve-report') resolveReport(reportId);
 });
+
+if (contentList) {
+    contentList.addEventListener('click', (e) => {
+        const btn = e.target.closest('button[data-action]');
+        if (!btn) return;
+        const action = btn.getAttribute('data-action');
+        const type = btn.getAttribute('data-type');
+        const id = btn.getAttribute('data-id');
+        if (action === 'delete-content' && type && id) {
+            deleteContent(type, id);
+        }
+    });
+}
+
+if (contentTypeFilter) {
+    contentTypeFilter.addEventListener('change', loadContentReview);
+}
 
 if (reportsFilter) {
     reportsFilter.addEventListener('change', loadReports);

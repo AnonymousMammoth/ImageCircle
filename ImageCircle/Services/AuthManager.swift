@@ -24,10 +24,11 @@ final class AuthManager: ObservableObject {
     var isAdmin: Bool { currentUser?.isAdmin ?? false }
     var needsPasswordChange: Bool { currentUser?.passwordChangeRequired ?? false }
     
-    /// Whether the current user can delete content owned by another user.
+    /// Whether the current user can delete the given content.
+    /// Deleting another user's content is only allowed through the admin moderation panel.
     func canDelete(contentUserID: Int) -> Bool {
         guard let currentUser = currentUser else { return false }
-        return currentUser.id == contentUserID || currentUser.isAdmin
+        return currentUser.id == contentUserID
     }
     
     private init() {
