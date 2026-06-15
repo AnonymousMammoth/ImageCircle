@@ -262,6 +262,7 @@ const storyViewerComponent = {
             const img = createEl('img', {
                 src: url,
                 alt: '',
+                loading: 'lazy',
                 style: 'max-width:100%;max-height:100%;object-fit:contain;'
             });
             img.onerror = () => { mediaWrap.innerHTML = '<p style="color:white">Could not load image</p>'; };

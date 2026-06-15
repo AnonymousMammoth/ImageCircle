@@ -30,8 +30,6 @@ final class AuthManager: ObservableObject {
         return currentUser.id == contentUserID || currentUser.isAdmin
     }
     
-    private var lastUsedPassword: String?
-    
     private init() {
         self.serverURL = UserDefaults.standard.string(forKey: "server_url") ?? ""
     }
@@ -66,18 +64,12 @@ final class AuthManager: ObservableObject {
         APIClient.shared.baseURLString = normalizedURL
 
         let response = try await APIClient.shared.login(username: username, password: password)
-        self.lastUsedPassword = password
 
         try KeychainHelper.shared.saveToken(response.token)
         self.token = response.token
         APIClient.shared.token = response.token
         self.currentUser = response.user
         self.isAuthenticated = true
-    }
-    
-    /// Returns the password last used during login so a forced password change can use it as current_password.
-    func lastPassword() -> String? {
-        lastUsedPassword
     }
     
     func changePassword(currentPassword: String, newPassword: String) async throws {
@@ -100,7 +92,6 @@ final class AuthManager: ObservableObject {
         self.token = nil
         self.currentUser = nil
         self.isAuthenticated = false
-        self.lastUsedPassword = nil
         APIClient.shared.token = nil
         // Do NOT clear server URL so the user can log in again quickly.
     }
@@ -110,10 +101,22 @@ struct LoginResponse: Codable {
     let token: String
     let user: User
     let expiresAt: String?
+
+    enum CodingKeys: String, CodingKey {
+        case token
+        case user
+        case expiresAt = "expires_at"
+    }
 }
 
 struct ChangePasswordResponse: Codable {
     let success: Bool
     let token: String
     let expiresAt: String?
+
+    enum CodingKeys: String, CodingKey {
+        case success
+        case token
+        case expiresAt = "expires_at"
+    }
 }

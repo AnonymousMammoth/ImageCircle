@@ -13,19 +13,19 @@ struct User: Codable, Identifiable, Hashable {
     let username: String
     let displayName: String
     let isAdmin: Bool
-    let passwordChangeRequired: Bool
+    let passwordChangeRequired: Bool?
     let avatarFilename: String?
     let avatarURL: String?
     let createdAt: String?
-    
+
     enum CodingKeys: String, CodingKey {
         case id
         case username
-        case displayName
-        case isAdmin
-        case passwordChangeRequired
-        case avatarFilename
-        case avatarURL = "avatarUrl"
-        case createdAt
+        case displayName = "display_name"
+        case isAdmin = "is_admin"
+        case passwordChangeRequired = "password_change_required"
+        case avatarFilename = "avatar_filename"
+        case avatarURL = "avatar_url"
+        case createdAt = "created_at"
     }
 }

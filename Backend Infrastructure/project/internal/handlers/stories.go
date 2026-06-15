@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"database/sql"
+	"io"
 	"net/http"
 	"strconv"
 	"time"
@@ -90,12 +91,17 @@ func (h *StoryHandler) CreateStory(c *gin.Context) {
 
 	// Validate no GPS data (only for images)
 	if mediaType == "image" {
-		detectedMime := detectMimeFromHeader(mediaHeader)
+		detectedMime, err := storage.DetectMimeType(mediaFile)
+		if err != nil {
+			utils.RespondError(c, http.StatusBadRequest, "failed to detect media type")
+			return
+		}
+		mediaFile.Seek(0, io.SeekStart)
 		if err := h.MediaStore.ValidateNoGPS(mediaFile, detectedMime); err != nil {
 			utils.RespondError(c, http.StatusBadRequest, "image contains location data")
 			return
 		}
-		mediaFile.Seek(0, 0)
+		mediaFile.Seek(0, io.SeekStart)
 	}
 
 	// Save media file

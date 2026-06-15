@@ -42,7 +42,7 @@ Circle is a private, self-hosted photo/video sharing app with a Twitter-style te
    └───────────────┘      └─────────────────────┘      └─────────────────┘
 ```
 
-1. The iOS app stores the JWT in the Keychain and sends `Authorization: Bearer <token>` on protected requests. The web app relies on the `circle_session` cookie for media and sends the JWT header for API calls.
+1. The iOS app stores the JWT in the Keychain and sends `Authorization: Bearer <token>` on protected requests. The web app keeps its JWT in memory and sends the `Authorization` header when a token is present, but it also restores the session from the HttpOnly `circle_session` cookie on page load and can make authenticated API calls via the cookie alone.
 2. nginx terminates TLS (or sits behind Tailscale/Cloudflare Tunnel) and forwards `/api/*`, `/media/`, `/admin`, and `/` to the Go backend.
 3. nginx proxies uploaded photos/videos to the Go backend, which validates the session, sanitizes the path, and streams the file from `/data/media/`.
 4. The Go backend reads/writes metadata to SQLite and writes uploaded files to the filesystem.
@@ -51,7 +51,7 @@ Circle is a private, self-hosted photo/video sharing app with a Twitter-style te
 ## Authentication
 
 - **Mechanism**: JWT signed with HS256, 30-day expiry.
-- **Storage**: iOS Keychain (`ImageCircle/Services/KeychainHelper.swift`). The web admin panel keeps its JWT in memory only.
+- **Storage**: iOS Keychain (`ImageCircle/Services/KeychainHelper.swift`). The web app keeps its JWT in memory only, falling back to the HttpOnly `circle_session` cookie on refresh.
 - **Cookie session**: The backend sets a `circle_session` cookie on login, setup, refresh, and change-password so browser-initiated requests (e.g., `<img>` tags) and the web app can present a session without custom headers. The cookie is `SameSite=Strict` and `HttpOnly`; its `Secure` flag is controlled by `CIRCLE_COOKIE_SECURE`. Logout clears the cookie.
 - **Session whitelist**: Every login creates a row in the `sessions` table. The auth middleware rejects tokens that are not present (and not expired) in that table, enabling logout/revocation.
 - **Refresh**: `POST /api/auth/refresh` issues a new token and new session row.

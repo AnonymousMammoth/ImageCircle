@@ -2,7 +2,7 @@ package handlers
 
 import (
 	"database/sql"
-	"mime/multipart"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -13,6 +13,9 @@ import (
 	"circle/internal/storage"
 	"circle/internal/utils"
 )
+
+// MaxCaptionLength is the maximum allowed length for a post caption.
+const MaxCaptionLength = 2000
 
 // PostHandler handles post endpoints.
 type PostHandler struct {
@@ -93,14 +96,22 @@ func (h *PostHandler) CreatePost(c *gin.Context) {
 		}
 		defer mediaFile.Close()
 
+		// Detect MIME type for validation
+		detectedMime, err := storage.DetectMimeType(mediaFile)
+		if err != nil {
+			utils.RespondError(c, http.StatusBadRequest, "failed to detect media type")
+			return
+		}
+
 		// Validate no GPS data in the image
-		if err := h.MediaStore.ValidateNoGPS(mediaFile, detectMimeFromHeader(mediaHeader)); err != nil {
+		mediaFile.Seek(0, io.SeekStart)
+		if err := h.MediaStore.ValidateNoGPS(mediaFile, detectedMime); err != nil {
 			utils.RespondError(c, http.StatusBadRequest, "image contains location data")
 			return
 		}
 
 		// Save media file
-		mediaFile.Seek(0, 0)
+		mediaFile.Seek(0, io.SeekStart)
 		_, mediaFilename, err = h.MediaStore.SaveMedia(userID, mediaFile, mediaHeader, h.MaxSize)
 		if err != nil {
 			utils.RespondError(c, http.StatusBadRequest, err.Error())
@@ -121,6 +132,11 @@ func (h *PostHandler) CreatePost(c *gin.Context) {
 		}
 	} else {
 		utils.RespondError(c, http.StatusBadRequest, "unsupported content type")
+		return
+	}
+
+	if len(caption) > MaxCaptionLength {
+		utils.RespondError(c, http.StatusBadRequest, "caption must be at most 2000 characters")
 		return
 	}
 
@@ -187,33 +203,4 @@ func (h *PostHandler) DeletePost(c *gin.Context) {
 	}
 
 	utils.RespondNoContent(c)
-}
-
-// detectMimeFromHeader attempts to detect MIME type from a file header.
-func detectMimeFromHeader(header *multipart.FileHeader) string {
-	file, err := header.Open()
-	if err != nil {
-		return ""
-	}
-	defer file.Close()
-
-	buf := make([]byte, 512)
-	n, _ := file.Read(buf)
-	if n == 0 {
-		return ""
-	}
-
-	// Check JPEG
-	if n >= 3 && buf[0] == 0xFF && buf[1] == 0xD8 && buf[2] == 0xFF {
-		return "image/jpeg"
-	}
-	// Check PNG
-	if n >= 8 && buf[0] == 0x89 && buf[1] == 0x50 && buf[2] == 0x4E && buf[3] == 0x47 {
-		return "image/png"
-	}
-	// Check MP4/MOV/HEIC by ftyp
-	if n >= 12 && buf[4] == 'f' && buf[5] == 't' && buf[6] == 'y' && buf[7] == 'p' {
-		return "video/mp4" // Default to mp4, actual detection will happen in SaveMedia
-	}
-	return ""
 }

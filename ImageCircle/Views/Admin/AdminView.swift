@@ -19,62 +19,60 @@ struct AdminView: View {
     @State private var showDeleteConfirm = false
     
     var body: some View {
-        NavigationStack {
-            List {
-                Section {
-                    Button(action: { showAddUser = true }) {
-                        HStack {
-                            Spacer()
-                            Text("Add User")
-                                .font(.headline)
-                            Spacer()
-                        }
+        List {
+            Section {
+                Button(action: { showAddUser = true }) {
+                    HStack {
+                        Spacer()
+                        Text("Add User")
+                            .font(.headline)
+                        Spacer()
                     }
-                    .listRowBackground(Color.pink)
-                    .foregroundStyle(.white)
                 }
-                
-                Section("Users") {
-                    ForEach(users) { user in
-                        UserRow(user: user) {
-                            resetPassword(for: user)
-                        } toggleAdmin: {
-                            toggleAdmin(for: user)
-                        } delete: {
-                            userToDelete = user
-                            showDeleteConfirm = true
-                        }
+                .listRowBackground(Color.pink)
+                .foregroundStyle(.white)
+            }
+            
+            Section("Users") {
+                ForEach(users) { user in
+                    UserRow(user: user) {
+                        resetPassword(for: user)
+                    } toggleAdmin: {
+                        toggleAdmin(for: user)
+                    } delete: {
+                        userToDelete = user
+                        showDeleteConfirm = true
                     }
                 }
             }
-            .navigationTitle("Admin")
-            .navigationBarTitleDisplayMode(.inline)
-            .sheet(isPresented: $showAddUser) {
-                AddUserSheet(onUserCreated: { password in
-                    passwordToShow = password
-                    showPasswordModal = true
-                    Task { await loadUsers() }
-                })
+        }
+        .navigationTitle("Admin")
+        .navigationBarTitleDisplayMode(.inline)
+        .sheet(isPresented: $showAddUser) {
+            AddUserSheet(onUserCreated: { password in
+                passwordToShow = password
+                showPasswordModal = true
+                Task { await loadUsers() }
+            })
+        }
+        .sheet(isPresented: $showPasswordModal) {
+            PasswordModal(password: passwordToShow)
+        }
+        .alert("Error", isPresented: $showError) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(errorMessage ?? "Something went wrong.")
+        }
+        .alert("Delete User?", isPresented: $showDeleteConfirm, presenting: userToDelete) { user in
+            Button("Cancel", role: .cancel) {}
+            Button("Delete", role: .destructive) {
+                delete(user: user)
             }
-            .sheet(isPresented: $showPasswordModal) {
-                PasswordModal(password: passwordToShow)
-            }
-            .alert("Error", isPresented: $showError) {
-                Button("OK", role: .cancel) {}
-            } message: {
-                Text(errorMessage ?? "Something went wrong.")
-            }
-            .alert("Delete User?", isPresented: $showDeleteConfirm, presenting: userToDelete) { user in
-                Button("Cancel", role: .cancel) {}
-                Button("Delete", role: .destructive) {
-                    delete(user: user)
-                }
-            } message: { user in
-                Text("Are you sure you want to delete @\(user.username)? This cannot be undone.")
-            }
-            .task {
-                await loadUsers()
-            }
+        } message: { user in
+            Text("Are you sure you want to delete @\(user.username)? This cannot be undone.")
+        }
+        .task {
+            await loadUsers()
         }
     }
     
@@ -150,8 +148,7 @@ struct UserRow: View {
     
     var body: some View {
         HStack(spacing: 12) {
-            placeholderAvatar(name: user.username)
-                .frame(width: 32, height: 32)
+            AvatarImage(user: user, size: 32)
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
                     Text(user.username)
@@ -295,6 +292,12 @@ struct PasswordModal: View {
                     .clipShape(RoundedRectangle(cornerRadius: 8))
                     .textSelection(.enabled)
                 
+                Text("This temporary password will be cleared from the pasteboard 30 seconds after copying.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal)
+                
                 Button(action: copy) {
                     HStack {
                         Image(systemName: copied ? "checkmark" : "doc.on.doc")
@@ -323,6 +326,11 @@ struct PasswordModal: View {
     private func copy() {
         UIPasteboard.general.string = password
         copied = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 30) { [password] in
+            if UIPasteboard.general.string == password {
+                UIPasteboard.general.string = ""
+            }
+        }
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
             copied = false
         }

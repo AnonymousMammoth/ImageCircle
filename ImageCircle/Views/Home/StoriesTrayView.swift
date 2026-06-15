@@ -98,17 +98,6 @@ struct StoryCircle: View {
     }
     
     private func avatarView(for user: User) -> some View {
-        Group {
-            if let filename = user.avatarFilename,
-               !filename.isEmpty,
-               let url = MediaURL.url(userID: user.id, filename: filename) {
-                KFImage(url)
-                    .resizable()
-                    .placeholder { placeholderAvatar(name: user.username) }
-                    .aspectRatio(contentMode: .fill)
-            } else {
-                placeholderAvatar(name: user.username)
-            }
-        }
+        AvatarImage(user: user, size: 50)
     }
 }

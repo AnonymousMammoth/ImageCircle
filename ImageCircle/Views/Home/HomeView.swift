@@ -21,6 +21,7 @@ struct HomeView: View {
     @State private var showCamera = false
     @State private var selectedPostForComments: Post?
     @State private var feedFilter: FeedFilter = .mixed
+    @State private var profileUser: User? = nil
     
     /// Posts filtered by the selected segment (client-side until backend supports ?type=).
     private var filteredPosts: [Post] {
@@ -50,13 +51,13 @@ struct HomeView: View {
                         emptyState
                     } else {
                         ForEach(filteredPosts) { post in
-                            PostCardView(post: post) {
-                                refreshTrigger = UUID()
-                            } onCommentTapped: {
-                                selectedPostForComments = post
-                            } onDelete: {
-                                refreshTrigger = UUID()
-                            }
+                            PostCardView(
+                                post: post,
+                                onLikeChanged: { refreshTrigger = UUID() },
+                                onCommentTapped: { selectedPostForComments = post },
+                                onDelete: { refreshTrigger = UUID() },
+                                onProfileTapped: { profileUser = $0 }
+                            )
                             .id(post.id)
                         }
                     }
@@ -111,6 +112,9 @@ struct HomeView: View {
                 await loadFeed()
                 guard !Task.isCancelled else { return }
                 await loadStories()
+            }
+            .navigationDestination(item: $profileUser) { user in
+                ProfileView(user: user)
             }
         }
     }
@@ -202,6 +206,7 @@ struct CommentsSheetView: View {
     @State private var isLoading = false
     @State private var errorMessage: String?
     @State private var showError = false
+    @State private var profileUser: User? = nil
     @Environment(\.dismiss) private var dismiss
     
     var body: some View {
@@ -209,17 +214,22 @@ struct CommentsSheetView: View {
             VStack(spacing: 0) {
                 List(comments) { comment in
                     HStack(alignment: .top, spacing: 12) {
-                        placeholderAvatar(name: comment.user.username)
-                            .frame(width: 32, height: 32)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(comment.user.username)
-                                .font(.subheadline.weight(.semibold))
-                            Text(comment.text)
-                                .font(.subheadline)
-                            Text(comment.createdAt.relativeTimeFromISO())
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
+                        Button(action: { profileUser = comment.user }) {
+                            HStack(alignment: .top, spacing: 12) {
+                                AvatarImage(user: comment.user, size: 32)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(comment.user.username)
+                                        .font(.subheadline.weight(.semibold))
+                                    Text(comment.text)
+                                        .font(.subheadline)
+                                    Text(comment.createdAt.relativeTimeFromISO())
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
                         }
+                        .buttonStyle(.plain)
+                        
                         Spacer()
                     }
                     .padding(.vertical, 4)
@@ -264,6 +274,9 @@ struct CommentsSheetView: View {
                 Button("OK", role: .cancel) {}
             } message: {
                 Text(errorMessage ?? "Could not load comments.")
+            }
+            .navigationDestination(item: $profileUser) { user in
+                ProfileView(user: user)
             }
         }
     }

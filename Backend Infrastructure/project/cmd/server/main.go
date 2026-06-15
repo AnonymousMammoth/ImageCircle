@@ -26,22 +26,40 @@ import (
 // It prevents directory traversal and returns 404 for directories or missing files.
 func serveWebStatic(c *gin.Context, root, paramName string) {
 	rel := strings.TrimPrefix(c.Param(paramName), "/")
-	fullPath := filepath.Join(root, filepath.Clean(rel))
-
-	absPath, _ := filepath.Abs(fullPath)
-	absRoot, _ := filepath.Abs(root)
-	if !strings.HasPrefix(absPath, absRoot) {
+	rel = filepath.Clean(rel)
+	if rel == "." || rel == "/" || rel == "" {
 		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"error": "not found"})
 		return
 	}
 
-	info, err := os.Stat(fullPath)
+	fullPath := filepath.Join(root, rel)
+
+	absPath, err := filepath.Abs(fullPath)
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"error": "not found"})
+		return
+	}
+
+	absRoot, err := filepath.Abs(root)
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "server error"})
+		return
+	}
+
+	// Ensure the resolved path stays within the root directory.
+	if !strings.HasPrefix(absPath, absRoot+string(filepath.Separator)) && absPath != absRoot {
+		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"error": "not found"})
+		return
+	}
+
+	info, err := os.Stat(absPath)
 	if err != nil || info.IsDir() {
 		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"error": "not found"})
 		return
 	}
 
-	c.File(fullPath)
+	c.Header("Cache-Control", "public, max-age=86400")
+	c.File(absPath)
 }
 
 func main() {
@@ -165,6 +183,14 @@ func main() {
 
 	// Health check (no auth, for Docker healthcheck)
 	router.GET("/api/health", func(c *gin.Context) {
+		if err := sqlDB.Ping(); err != nil {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"status": "error", "detail": "database unavailable"})
+			return
+		}
+		if _, err := os.Stat(cfg.MediaDir); err != nil {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"status": "error", "detail": "storage unavailable"})
+			return
+		}
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 	})
 
@@ -233,18 +259,34 @@ func main() {
 	// Serve static files and SPA fallback for /admin/* paths
 	router.GET("/admin/*adminPath", func(c *gin.Context) {
 		requestedPath := c.Param("adminPath")
-		fullPath := filepath.Join("./web", filepath.Clean(requestedPath))
+		rel := filepath.Clean(requestedPath)
+		if rel == "." || rel == "/" || rel == "" {
+			c.File("./web/admin.html")
+			return
+		}
+
+		fullPath := filepath.Join("./web", rel)
 
 		// Security: ensure path is still within ./web (prevent directory traversal)
-		absPath, _ := filepath.Abs(fullPath)
-		absWeb, _ := filepath.Abs("./web")
-		if !strings.HasPrefix(absPath, absWeb) {
+		absPath, err := filepath.Abs(fullPath)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+			return
+		}
+
+		absWeb, err := filepath.Abs("./web")
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "server error"})
+			return
+		}
+
+		if !strings.HasPrefix(absPath, absWeb+string(filepath.Separator)) && absPath != absWeb {
 			c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
 			return
 		}
 
 		// Check if the requested file exists and is not a directory
-		info, err := os.Stat(fullPath)
+		info, err := os.Stat(absPath)
 		if err != nil || info.IsDir() {
 			// Serve admin.html for SPA routing (JavaScript router handles the path)
 			c.File("./web/admin.html")
@@ -252,17 +294,21 @@ func main() {
 		}
 
 		// Serve the static file
-		c.File(fullPath)
+		c.File(absPath)
 	})
 
 	// Serve web app assets (no directory listings, 404 for missing files)
-	router.StaticFile("/app.css", "./web/app.css")
+	router.GET("/app.css", func(c *gin.Context) {
+		c.Header("Cache-Control", "public, max-age=86400")
+		c.File("./web/app.css")
+	})
 	router.GET("/js/*filepath", func(c *gin.Context) {
 		serveWebStatic(c, "./web/js", "filepath")
 	})
 
 	// Serve web app shell at root
 	router.GET("/", func(c *gin.Context) {
+		c.Header("Cache-Control", "no-cache")
 		c.File("./web/index.html")
 	})
 
@@ -273,6 +319,7 @@ func main() {
 			c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
 			return
 		}
+		c.Header("Cache-Control", "no-cache")
 		c.File("./web/index.html")
 	})
 
@@ -312,8 +359,10 @@ func main() {
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer shutdownCancel()
 
-	// 1. Stop cleanup job
+	// 1. Stop background goroutines
 	cleanupJob.Stop()
+	rateLimiter.Stop()
+	strictRateLimiter.Stop()
 
 	// 2. Graceful server shutdown with 10s timeout
 	if err := srv.Shutdown(shutdownCtx); err != nil {

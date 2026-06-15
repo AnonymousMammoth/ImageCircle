@@ -306,7 +306,10 @@ struct CreateComposerView: View {
         uploadProgress = 0.2
         Task {
             do {
-                let thumbData = squareThumbnailData(from: UIImage(data: imageData)!)
+                guard let image = UIImage(data: imageData) else {
+                    throw NSError(domain: "CreateComposer", code: -1, userInfo: [NSLocalizedDescriptionKey: "Could not read selected image."])
+                }
+                let thumbData = squareThumbnailData(from: image)
                 uploadProgress = 0.4
                 _ = try await APIClient.shared.createPost(
                     caption: caption,

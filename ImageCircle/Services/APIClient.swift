@@ -73,7 +73,8 @@ final class APIClient {
     
     private init() {
         let decoder = JSONDecoder()
-        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        // Models use explicit CodingKeys that match the backend JSON field names.
+        decoder.keyDecodingStrategy = .useDefaultKeys
         decoder.dateDecodingStrategy = .iso8601
         self.jsonDecoder = decoder
         
@@ -227,7 +228,11 @@ final class APIClient {
                     task.resume()
                 }
             } onCancel: {
-                taskBox.task?.cancel()
+                if let task = taskBox.task {
+                    task.cancel()
+                    uploadDelegate.setCompletion(nil, for: task)
+                    uploadDelegate.setProgressHandler(nil, for: task)
+                }
             }
             return try await handleResponse(data: data, response: response)
         } catch {
@@ -265,10 +270,10 @@ final class APIClient {
     private struct LikeResponse: Codable {
         let liked: Bool
         let likeCount: Int
-        
+
         enum CodingKeys: String, CodingKey {
             case liked
-            case likeCount
+            case likeCount = "like_count"
         }
     }
     
@@ -562,18 +567,18 @@ final class APIClient {
 struct CreateUserResponse: Codable {
     let user: User
     let temporaryPassword: String
-    
+
     enum CodingKeys: String, CodingKey {
         case user
-        case temporaryPassword
+        case temporaryPassword = "temporary_password"
     }
 }
 
 struct ResetPasswordResponse: Codable {
     let temporaryPassword: String
-    
+
     enum CodingKeys: String, CodingKey {
-        case temporaryPassword
+        case temporaryPassword = "temporary_password"
     }
 }
 

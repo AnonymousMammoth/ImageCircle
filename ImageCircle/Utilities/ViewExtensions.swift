@@ -92,3 +92,27 @@ func avatarImage(url: URL?) -> some View {
             .overlay(Text("?").foregroundStyle(.secondary))
     }
 }
+
+// MARK: - Reusable Avatar
+
+struct AvatarImage: View {
+    let user: User
+    let size: CGFloat
+    
+    var body: some View {
+        Group {
+            if let filename = user.avatarFilename,
+               !filename.isEmpty,
+               let url = MediaURL.url(userID: user.id, filename: filename) {
+                KFImage(url)
+                    .resizable()
+                    .placeholder { placeholderAvatar(name: user.username) }
+                    .aspectRatio(contentMode: .fill)
+            } else {
+                placeholderAvatar(name: user.username)
+            }
+        }
+        .frame(width: size, height: size)
+        .clipShape(Circle())
+    }
+}

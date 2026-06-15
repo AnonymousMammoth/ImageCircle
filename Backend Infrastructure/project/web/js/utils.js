@@ -208,6 +208,29 @@ function clamp(val, min, max) {
     return Math.max(min, Math.min(max, val));
 }
 
+function validatePasswordStrength(password) {
+    if (!password || password.length < 8) {
+        return 'Password must be at least 8 characters long.';
+    }
+    let hasUpper = false;
+    let hasLower = false;
+    let hasDigit = false;
+    for (let i = 0; i < password.length; i++) {
+        const c = password.charCodeAt(i);
+        if (c >= 65 && c <= 90) hasUpper = true;
+        else if (c >= 97 && c <= 122) hasLower = true;
+        else if (c >= 48 && c <= 57) hasDigit = true;
+    }
+    const missing = [];
+    if (!hasUpper) missing.push('uppercase letter');
+    if (!hasLower) missing.push('lowercase letter');
+    if (!hasDigit) missing.push('digit');
+    if (missing.length > 0) {
+        return 'Password must contain at least one ' + missing.join(', ') + '.';
+    }
+    return null;
+}
+
 function groupStoriesByUser(stories) {
     const groups = {};
     for (const story of stories) {

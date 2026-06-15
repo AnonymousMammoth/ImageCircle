@@ -157,20 +157,15 @@ func (j *CleanupJob) cleanupOrphanedMedia() {
 			return nil
 		}
 
-		// Get just the filename (not the full path)
-		basename := filepath.Base(path)
-		if basename == "" {
+		relPath, err := filepath.Rel(mediaDir, path)
+		if err != nil {
 			return nil
 		}
+		// Normalize path separators for cross-platform consistency
+		relPath = filepath.ToSlash(relPath)
 
-		if !referenced[basename] {
+		if !referenced[relPath] {
 			// Orphaned file - delete it
-			relPath, err := filepath.Rel(mediaDir, path)
-			if err != nil {
-				return nil
-			}
-			// Normalize path separators for cross-platform consistency
-			relPath = filepath.ToSlash(relPath)
 			if err := j.mediaStore.DeleteMedia(relPath); err != nil {
 				j.logger.Error("failed to delete orphaned media",
 					"path", relPath,
@@ -194,96 +189,47 @@ func (j *CleanupJob) cleanupOrphanedMedia() {
 	}
 }
 
-// getReferencedMedia returns a set of all media filenames referenced
+// getReferencedMedia returns a set of all relative media paths referenced
 // in posts, stories, and users tables (media_filename, thumbnail_filename,
-// and avatar_filename columns).
+// and avatar_filename columns). Paths are normalized with forward slashes.
 func (j *CleanupJob) getReferencedMedia() (map[string]bool, error) {
 	referenced := make(map[string]bool)
 
-	// Query posts.media_filename
-	rows, err := j.db.Query(`SELECT media_filename FROM posts WHERE media_filename IS NOT NULL AND media_filename != ''`)
-	if err != nil {
-		return nil, err
-	}
-	for rows.Next() {
-		var fn string
-		if err := rows.Scan(&fn); err != nil {
-			rows.Close()
-			return nil, err
+	// Helper to collect filenames for a query. Each row is expected to contain
+	// a user_id column followed by the filename column.
+	collect := func(query string) error {
+		rows, err := j.db.Query(query)
+		if err != nil {
+			return err
 		}
-		if fn != "" {
-			referenced[fn] = true
-		}
-	}
-	rows.Close()
+		defer rows.Close()
 
-	// Query posts.thumbnail_filename
-	rows, err = j.db.Query(`SELECT thumbnail_filename FROM posts WHERE thumbnail_filename IS NOT NULL AND thumbnail_filename != ''`)
-	if err != nil {
-		return nil, err
-	}
-	for rows.Next() {
-		var fn string
-		if err := rows.Scan(&fn); err != nil {
-			rows.Close()
-			return nil, err
+		for rows.Next() {
+			var userID int64
+			var fn string
+			if err := rows.Scan(&userID, &fn); err != nil {
+				return err
+			}
+			if fn != "" {
+				referenced[filepath.ToSlash(filepath.Join(fmt.Sprintf("%d", userID), fn))] = true
+			}
 		}
-		if fn != "" {
-			referenced[fn] = true
-		}
+		return rows.Err()
 	}
-	rows.Close()
 
-	// Query stories.media_filename
-	rows, err = j.db.Query(`SELECT media_filename FROM stories WHERE media_filename IS NOT NULL AND media_filename != ''`)
-	if err != nil {
-		return nil, err
+	queries := []string{
+		`SELECT user_id, media_filename FROM posts WHERE media_filename IS NOT NULL AND media_filename != ''`,
+		`SELECT user_id, thumbnail_filename FROM posts WHERE thumbnail_filename IS NOT NULL AND thumbnail_filename != ''`,
+		`SELECT user_id, media_filename FROM stories WHERE media_filename IS NOT NULL AND media_filename != ''`,
+		`SELECT user_id, thumbnail_filename FROM stories WHERE thumbnail_filename IS NOT NULL AND thumbnail_filename != ''`,
+		`SELECT id, avatar_filename FROM users WHERE avatar_filename IS NOT NULL AND avatar_filename != ''`,
 	}
-	for rows.Next() {
-		var fn string
-		if err := rows.Scan(&fn); err != nil {
-			rows.Close()
-			return nil, err
-		}
-		if fn != "" {
-			referenced[fn] = true
-		}
-	}
-	rows.Close()
 
-	// Query stories.thumbnail_filename
-	rows, err = j.db.Query(`SELECT thumbnail_filename FROM stories WHERE thumbnail_filename IS NOT NULL AND thumbnail_filename != ''`)
-	if err != nil {
-		return nil, err
-	}
-	for rows.Next() {
-		var fn string
-		if err := rows.Scan(&fn); err != nil {
-			rows.Close()
+	for _, q := range queries {
+		if err := collect(q); err != nil {
 			return nil, err
 		}
-		if fn != "" {
-			referenced[fn] = true
-		}
 	}
-	rows.Close()
-
-	// Query users.avatar_filename
-	rows, err = j.db.Query(`SELECT avatar_filename FROM users WHERE avatar_filename IS NOT NULL AND avatar_filename != ''`)
-	if err != nil {
-		return nil, err
-	}
-	for rows.Next() {
-		var fn string
-		if err := rows.Scan(&fn); err != nil {
-			rows.Close()
-			return nil, err
-		}
-		if fn != "" {
-			referenced[fn] = true
-		}
-	}
-	rows.Close()
 
 	return referenced, nil
 }

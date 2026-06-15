@@ -3,6 +3,12 @@
  */
 
 const forcePasswordChangeComponent = {
+    _currentPassword: null,
+
+    setCurrentPassword(password) {
+        this._currentPassword = password || null;
+    },
+
     render(container) {
         clearEl(container);
         container.className = 'login-screen';
@@ -47,8 +53,9 @@ const forcePasswordChangeComponent = {
 
     async submit(newPassword, confirmPassword, errorEl, submitBtn) {
         setText(errorEl, '');
-        if (newPassword.length < 6) {
-            setText(errorEl, 'Password must be at least 6 characters.');
+        const strengthError = validatePasswordStrength(newPassword);
+        if (strengthError) {
+            setText(errorEl, strengthError);
             return;
         }
         if (newPassword !== confirmPassword) {
@@ -56,11 +63,14 @@ const forcePasswordChangeComponent = {
             return;
         }
 
+        const currentPassword = this._currentPassword;
+        this._currentPassword = null;
+
         submitBtn.disabled = true;
         submitBtn.innerHTML = '<span class="spinner"></span>';
 
         try {
-            const data = await changePassword(state.lastPassword, newPassword);
+            const data = await changePassword(currentPassword, newPassword);
             if (data && data.token) {
                 state.token = data.token;
             }

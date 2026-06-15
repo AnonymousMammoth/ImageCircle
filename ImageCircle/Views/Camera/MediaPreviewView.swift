@@ -81,7 +81,9 @@ struct MediaPreviewView: View {
             }
             .onAppear {
                 if let videoURL = videoURL {
-                    videoPlayer = AVPlayer(url: videoURL)
+                    let player = AVPlayer(url: videoURL)
+                    player.isMuted = false
+                    videoPlayer = player
                     videoPlayer?.play()
                 }
             }

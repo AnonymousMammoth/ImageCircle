@@ -90,8 +90,9 @@ const loginComponent = {
             if (!data || !data.token || !data.user) {
                 throw new Error('Invalid response from server');
             }
-            state.setAuth(data, password);
+            state.setAuth(data);
             if (state.requiresPasswordChange) {
+                forcePasswordChangeComponent.setCurrentPassword(password);
                 router.navigate('/force-password-change');
             } else {
                 router.navigate('/');
@@ -147,7 +148,7 @@ const setupComponent = {
         submitBtn.innerHTML = '<span class="spinner"></span>';
         try {
             const data = await apiPost('/admin/setup', { username, password });
-            state.setAuth(data, password);
+            state.setAuth(data);
             router.navigate('/');
         } catch (err) {
             setText(errorEl, err.message);

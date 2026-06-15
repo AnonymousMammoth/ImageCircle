@@ -12,7 +12,7 @@ Login, setup, refresh, and change-password set the `circle_session` cookie (`Sam
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| `GET` | `/api/health` | No | Docker/container health check. Returns `{"status": "ok"}`. |
+| `GET` | `/api/health` | No | Docker/container health check. Verifies database and storage availability. Returns `{"status": "ok"}` or `503 {"status": "error", "detail": "..."}`. |
 | `GET` | `/api/admin/setup` | No | Check whether first-admin setup is still available. Returns `200 {"setup_required": true}` when no users exist, otherwise `403`. |
 | `POST` | `/api/admin/setup` | No | One-time first-admin setup. Returns JWT, user object, and expiry. Returns `403` once any user exists. |
 | `POST` | `/api/auth/login` | No | Username/password login. Returns JWT, user object, and expiry. |

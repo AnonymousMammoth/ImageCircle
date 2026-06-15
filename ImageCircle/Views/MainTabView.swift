@@ -48,12 +48,14 @@ struct MainTabView: View {
                 }
                 .tag(3)
             
-            ProfileView(user: auth.currentUser)
-                .tabItem {
-                    Image(systemName: selectedTab == 4 ? "person.fill" : "person")
-                    Text("Profile")
-                }
-                .tag(4)
+            NavigationStack {
+                ProfileView(user: auth.currentUser)
+            }
+            .tabItem {
+                Image(systemName: selectedTab == 4 ? "person.fill" : "person")
+                Text("Profile")
+            }
+            .tag(4)
             
             if auth.isAdmin {
                 AdminView()

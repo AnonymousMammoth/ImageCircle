@@ -129,7 +129,7 @@ Allowed MIME types:
 
 1. **Delete expired stories**: queries `stories WHERE expires_at <= datetime('now')`, deletes media files, then deletes DB rows.
 2. **Delete expired sessions**: removes `sessions` rows past `expires_at`.
-3. **Clean orphaned media**: walks `/data/media/` and removes files not referenced by `posts.media_filename`, `posts.thumbnail_filename`, `stories.media_filename`, or `stories.thumbnail_filename`.
+3. **Clean orphaned media**: walks `/data/media/` and removes files not referenced by `posts.media_filename`, `posts.thumbnail_filename`, `stories.media_filename`, `stories.thumbnail_filename`, or `users.avatar_filename`. Comparisons use the full `{user_id}/{filename}` relative path to avoid basename collisions.
 
 The job is started in `main.go` and stopped during graceful shutdown.
 
@@ -145,7 +145,6 @@ The job is started in `main.go` and stopped during graceful shutdown.
 | `CIRCLE_RATE_LIMIT` | `100` | Requests per minute per hashed IP. |
 | `CIRCLE_PASSWORD_COST` | `12` | bcrypt cost factor. |
 | `CIRCLE_COOKIE_SECURE` | `false` | Set to `true` in production to mark the `circle_session` cookie `Secure`. Only enable behind HTTPS. |
-| `CIRCLE_ADMIN_BIND` | `127.0.0.1` | Loaded but **currently unused** in `main.go`. The admin panel is served on the same bind address as the main server (`ServerBind`, which is empty/`0.0.0.0`). |
 
 ## Docker / nginx Wiring
 
@@ -162,7 +161,7 @@ The reference deployment uses two containers defined in `docker-compose.yml`:
 | `/api/` | `http://circle-app:8080` | Proxy with 60s timeouts and `client_max_body_size 50M`. |
 | `/admin` and `/admin/*` | `http://circle-app:8080` | Admin panel SPA. |
 | `/` | `http://circle-app:8080` | Web app SPA shell (`index.html`). |
-| `~ /\. ` and `~* \.(db\|sqlite\|sqlite3\|env)$` | `deny all` | Hidden and sensitive files blocked. |
+| `~ /\. ` and `~* \.(db\|db-wal\|db-shm\|sqlite\|sqlite3\|env)$` | `deny all` | Hidden and sensitive files blocked. |
 
 The Go backend serves `/media/*` through the authenticated `MediaHandler.Serve` route. There is no `router.Static("/media", ...)` mount.
 

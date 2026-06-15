@@ -29,6 +29,7 @@ struct CameraView: View {
     @State private var showLibrary = false
     @State private var didPublish = false
     @State private var pendingPhotoWorkItem: DispatchWorkItem?
+    @State private var isCapturingPhoto = false
     @Environment(\.dismiss) private var dismiss
     
     var body: some View {
@@ -183,7 +184,7 @@ struct CameraView: View {
                                 // Touch up / cancelled.
                                 if camera.isRecording || isHoldingVideo {
                                     stopVideoRecording()
-                                } else if let item = pendingPhotoWorkItem {
+                                } else if !isCapturingPhoto, let item = pendingPhotoWorkItem {
                                     item.cancel()
                                     pendingPhotoWorkItem = nil
                                     capturePhoto()
@@ -193,7 +194,7 @@ struct CameraView: View {
                         perform: {
                             // Long-press threshold reached — start video and cancel the pending photo.
                             cancelPendingPhotoCapture()
-                            if !camera.isRecording {
+                            if !camera.isRecording && !isCapturingPhoto {
                                 startVideoRecording()
                             }
                         }
@@ -254,12 +255,12 @@ struct CameraView: View {
         cancelPendingPhotoCapture()
         let item = DispatchWorkItem { [self] in
             self.pendingPhotoWorkItem = nil
-            if !self.camera.isRecording && !self.isHoldingVideo {
+            if !self.camera.isRecording && !self.isHoldingVideo && !self.isCapturingPhoto {
                 self.capturePhoto()
             }
         }
         pendingPhotoWorkItem = item
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4, execute: item)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3, execute: item)
     }
     
     private func cancelPendingPhotoCapture() {
@@ -269,14 +270,17 @@ struct CameraView: View {
     
     private func capturePhoto() {
         guard capturedImage == nil && capturedVideoURL == nil else { return }
+        isCapturingPhoto = true
         Task {
             do {
                 if let image = try await camera.capturePhoto() {
                     capturedImage = image
                 }
+                isCapturingPhoto = false
             } catch {
                 errorMessage = error.localizedDescription
                 showError = true
+                isCapturingPhoto = false
             }
         }
     }
@@ -469,7 +473,10 @@ final class CameraCaptureManager: NSObject, ObservableObject {
                     continuation.resume(throwing: NSError(domain: "Camera", code: -1, userInfo: [NSLocalizedDescriptionKey: "Camera unavailable"]))
                     return
                 }
-                self.setPhotoContinuation(continuation)
+                guard self.setPhotoContinuation(continuation) else {
+                    continuation.resume(throwing: NSError(domain: "Camera", code: -1, userInfo: [NSLocalizedDescriptionKey: "Photo capture already in progress"]))
+                    return
+                }
                 let settings = AVCapturePhotoSettings()
                 self.photoOutput.capturePhoto(with: settings, delegate: self)
             }
@@ -530,10 +537,12 @@ final class CameraCaptureManager: NSObject, ObservableObject {
     
     // MARK: - Continuation locking
     
-    private func setPhotoContinuation(_ continuation: CheckedContinuation<UIImage?, Error>) {
+    private func setPhotoContinuation(_ continuation: CheckedContinuation<UIImage?, Error>) -> Bool {
         stateLock.lock()
+        defer { stateLock.unlock() }
+        guard photoContinuation == nil else { return false }
         photoContinuation = continuation
-        stateLock.unlock()
+        return true
     }
     
     private func clearPhotoContinuation() -> CheckedContinuation<UIImage?, Error>? {

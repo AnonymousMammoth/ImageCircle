@@ -23,13 +23,13 @@ services:
     container_name: circle-app
     restart: unless-stopped
     environment:
-      - CIRCLE_PORT=8080
-      - CIRCLE_DATA_DIR=/data
+      - CIRCLE_PORT=${CIRCLE_PORT:-8080}
+      - CIRCLE_DATA_DIR=${CIRCLE_DATA_DIR:-/data}
       - CIRCLE_JWT_SECRET=${CIRCLE_JWT_SECRET}
       - CIRCLE_ALLOWED_ORIGIN=${CIRCLE_ALLOWED_ORIGIN}
-      - CIRCLE_MAX_MEDIA_SIZE=52428800
-      - CIRCLE_RATE_LIMIT=100
-      - CIRCLE_PASSWORD_COST=12
+      - CIRCLE_MAX_MEDIA_SIZE=${CIRCLE_MAX_MEDIA_SIZE:-52428800}
+      - CIRCLE_RATE_LIMIT=${CIRCLE_RATE_LIMIT:-100}
+      - CIRCLE_PASSWORD_COST=${CIRCLE_PASSWORD_COST:-12}
     volumes:
       - ./data:/data
     networks:
@@ -37,6 +37,12 @@ services:
     # No ports exposed directly -- only accessible through nginx
     security_opt:
       - no-new-privileges:true
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:${CIRCLE_PORT:-8080}/api/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      start_period: 5s
+      retries: 3
     # Resource limits for Raspberry Pi (512MB RAM target per service)
     deploy:
       resources:
@@ -59,7 +65,8 @@ services:
     networks:
       - circle-network
     depends_on:
-      - circle-app
+      circle-app:
+        condition: service_healthy
     security_opt:
       - no-new-privileges:true
     # Resource limits for Raspberry Pi

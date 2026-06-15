@@ -27,7 +27,10 @@ async function apiRequest(method, path, options) {
 
     if (response.status === 401) {
         state.clearAuth();
-        window.dispatchEvent(new CustomEvent('circle:authrequired'));
+        if (!state.authRequiredFired) {
+            state.authRequiredFired = true;
+            window.dispatchEvent(new CustomEvent('circle:authrequired'));
+        }
         throw new Error('Session expired. Please sign in again.');
     }
 
@@ -84,7 +87,10 @@ async function apiMultipart(path, formData, progressCallback) {
         xhr.onload = function() {
             if (xhr.status === 401) {
                 state.clearAuth();
-                window.dispatchEvent(new CustomEvent('circle:authrequired'));
+                if (!state.authRequiredFired) {
+                    state.authRequiredFired = true;
+                    window.dispatchEvent(new CustomEvent('circle:authrequired'));
+                }
                 reject(new Error('Session expired. Please sign in again.'));
                 return;
             }

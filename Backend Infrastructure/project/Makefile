@@ -22,7 +22,7 @@ run:
 	@echo "Starting Circle (local)..."
 	@if [ ! -f .env ]; then echo "Warning: .env file not found"; fi
 	mkdir -p data/media
-n	CGO_ENABLED=1 go run ./cmd/server
+	CGO_ENABLED=1 go run ./cmd/server
 
 # Run Go tests
 # Includes race detection and verbose output
@@ -70,11 +70,25 @@ docker-update:
 # Cleanup
 # ---------------------------------------------------------------------------
 
-# Remove compiled binary and local data directory
+# Remove compiled binary and local data directory.
+# In an interactive shell, prompts for confirmation before removing data/.
+# In non-interactive environments, data/ is moved to a timestamped backup.
 clean:
 	@echo "Cleaning up..."
 	rm -f circle
-	rm -rf data/
+	@if [ -d data ]; then \
+		if [ -t 0 ]; then \
+			read -p "Remove local data/ directory? This cannot be undone [y/N] " confirm; \
+			case "$$confirm" in \
+				[yY]*) rm -rf data/ ;; \
+				*) echo "Skipping data/ removal"; ;;
+			esac; \
+		else \
+			backup="data.backup.$$(date +%Y%m%d%H%M%S)"; \
+			mv data "$$backup"; \
+			echo "Moved data/ to $$backup (non-interactive mode)"; \
+		fi; \
+	fi
 	@echo "Cleanup complete"
 
 # Deep clean: remove Docker volumes and images too

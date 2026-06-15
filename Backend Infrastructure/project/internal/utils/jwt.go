@@ -1,8 +1,6 @@
 package utils
 
 import (
-	"crypto/rand"
-	"encoding/hex"
 	"fmt"
 	"time"
 
@@ -53,7 +51,7 @@ func GenerateToken(userID int64, username string, isAdmin bool, secret []byte) (
 func ValidateToken(tokenString string, secret []byte) (*Claims, error) {
 	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
 		// Enforce HS256 only
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+		if token.Method != jwt.SigningMethodHS256 {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
 		return secret, nil
@@ -72,14 +70,4 @@ func ValidateToken(tokenString string, secret []byte) (*Claims, error) {
 	}
 
 	return claims, nil
-}
-
-// GenerateSecureSecret generates a cryptographically secure 64-byte random secret.
-// Returns the secret as a hex-encoded string for easy storage.
-func GenerateSecureSecret() ([]byte, error) {
-	b := make([]byte, 64)
-	if _, err := rand.Read(b); err != nil {
-		return nil, fmt.Errorf("failed to generate random secret: %w", err)
-	}
-	return []byte(hex.EncodeToString(b)), nil
 }

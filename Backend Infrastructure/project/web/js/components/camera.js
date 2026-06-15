@@ -151,6 +151,14 @@ const cameraComponent = {
 
     startRecording() {
         if (!this.stream || this.isRecording) return;
+
+        const mimeType = this.getRecorderMimeType();
+        if (!mimeType) {
+            this.showError('Video recording is not supported on this device.');
+            this.didRecord = true;
+            return;
+        }
+
         this.isRecording = true;
         this.didRecord = true;
         this.recordedChunks = [];
@@ -158,7 +166,7 @@ const cameraComponent = {
         if (shutter) shutter.classList.add('recording');
 
         try {
-            this.mediaRecorder = new MediaRecorder(this.stream, { mimeType: this.getRecorderMimeType() });
+            this.mediaRecorder = new MediaRecorder(this.stream, { mimeType });
         } catch (err) {
             this.showError('Video recording is not supported on this device.');
             this.isRecording = false;
@@ -171,10 +179,8 @@ const cameraComponent = {
         };
 
         this.mediaRecorder.onstop = () => {
-            const mimeType = this.mediaRecorder.mimeType || 'video/webm';
-            const ext = mimeType.includes('mp4') ? 'mp4' : 'webm';
             const blob = new Blob(this.recordedChunks, { type: mimeType });
-            const file = new File([blob], 'camera-video.' + ext, { type: mimeType });
+            const file = new File([blob], 'camera-video.mp4', { type: mimeType });
             this.complete(file);
         };
 
@@ -192,9 +198,8 @@ const cameraComponent = {
     },
 
     getRecorderMimeType() {
-        const types = ['video/mp4', 'video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'];
-        for (const type of types) {
-            if (MediaRecorder.isTypeSupported(type)) return type;
+        if (MediaRecorder.isTypeSupported('video/mp4')) {
+            return 'video/mp4';
         }
         return '';
     },

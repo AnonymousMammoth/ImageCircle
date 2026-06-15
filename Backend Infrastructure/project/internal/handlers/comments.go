@@ -77,19 +77,12 @@ func (h *CommentHandler) CreateComment(c *gin.Context) {
 		return
 	}
 
-	// Verify post exists
-	_, err = models.GetPostByID(h.DB, postID)
+	comment, err := models.CreateComment(h.DB, postID, userID, req.Text)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			utils.RespondError(c, http.StatusNotFound, "post not found")
 			return
 		}
-		utils.RespondError(c, http.StatusInternalServerError, "failed to retrieve post")
-		return
-	}
-
-	comment, err := models.CreateComment(h.DB, postID, userID, req.Text)
-	if err != nil {
 		utils.RespondError(c, http.StatusInternalServerError, "failed to create comment")
 		return
 	}

@@ -26,6 +26,8 @@ type RateLimiter struct {
 	limit       int
 	refill      time.Duration
 	ipExtractor func(*gin.Context) string
+	stopCh      chan struct{}
+	stopOnce    sync.Once
 }
 
 // NewRateLimiter creates a new RateLimiter with the specified requests-per-minute limit.
@@ -48,9 +50,17 @@ func NewRateLimiterWithExtractor(requestsPerMinute int, extractor func(*gin.Cont
 		limit:       requestsPerMinute,
 		refill:      time.Minute,
 		ipExtractor: extractor,
+		stopCh:      make(chan struct{}),
 	}
 	go rl.cleanup()
 	return rl
+}
+
+// Stop terminates the background cleanup goroutine. It is safe to call multiple times.
+func (rl *RateLimiter) Stop() {
+	rl.stopOnce.Do(func() {
+		close(rl.stopCh)
+	})
 }
 
 // Middleware returns a gin middleware that rate-limits requests using a token bucket.
@@ -122,15 +132,37 @@ func (rl *RateLimiter) cleanup() {
 	ticker := time.NewTicker(5 * time.Minute)
 	defer ticker.Stop()
 
-	for range ticker.C {
-		rl.mu.Lock()
-		now := time.Now()
-		for key, b := range rl.buckets {
-			// Remove buckets that have been inactive for more than 10 minutes
-			if now.Sub(b.last) > 10*time.Minute {
-				delete(rl.buckets, key)
-			}
+	for {
+		select {
+		case <-ticker.C:
+			rl.purgeStaleBuckets()
+		case <-rl.stopCh:
+			return
 		}
-		rl.mu.Unlock()
 	}
+}
+
+// purgeStaleBuckets removes buckets that have been inactive for more than 10 minutes.
+// It collects stale keys under a read lock, then deletes them under a write lock.
+func (rl *RateLimiter) purgeStaleBuckets() {
+	now := time.Now()
+
+	rl.mu.RLock()
+	stale := make([]string, 0, len(rl.buckets))
+	for key, b := range rl.buckets {
+		if now.Sub(b.last) > 10*time.Minute {
+			stale = append(stale, key)
+		}
+	}
+	rl.mu.RUnlock()
+
+	if len(stale) == 0 {
+		return
+	}
+
+	rl.mu.Lock()
+	for _, key := range stale {
+		delete(rl.buckets, key)
+	}
+	rl.mu.Unlock()
 }

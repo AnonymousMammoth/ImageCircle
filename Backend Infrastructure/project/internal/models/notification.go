@@ -41,7 +41,7 @@ func GetNotifications(db *sql.DB, userID int64, limit, offset int) ([]*Notificat
 		SELECT * FROM (
 			SELECT
 				l.id, 'like' AS type, l.created_at,
-				actor.id, actor.username, actor.display_name, actor.is_admin, actor.avatar_filename, actor.created_at,
+				actor.id, actor.username, actor.display_name, actor.is_admin, actor.password_change_required, actor.avatar_filename, actor.created_at,
 				p.id, p.user_id, p.caption, p.media_filename, p.thumbnail_filename, p.created_at,
 				NULL AS comment_id, NULL AS comment_text, NULL AS comment_created_at
 			FROM likes l
@@ -53,7 +53,7 @@ func GetNotifications(db *sql.DB, userID int64, limit, offset int) ([]*Notificat
 
 			SELECT
 				c.id, 'comment' AS type, c.created_at,
-				actor.id, actor.username, actor.display_name, actor.is_admin, actor.avatar_filename, actor.created_at,
+				actor.id, actor.username, actor.display_name, actor.is_admin, actor.password_change_required, actor.avatar_filename, actor.created_at,
 				p.id, p.user_id, p.caption, p.media_filename, p.thumbnail_filename, p.created_at,
 				c.id, c.text, c.created_at
 			FROM comments c
@@ -83,6 +83,7 @@ func scanNotifications(rows *sql.Rows) ([]*Notification, error) {
 		var post NotificationPost
 		var actorAvatar, mediaFilename, thumbnailFilename sql.NullString
 		var actorCreatedAt sql.NullTime
+		var actorPasswordChangeRequiredInt int
 		var commentID sql.NullInt64
 		var commentText sql.NullString
 		var commentCreatedAt sql.NullTime
@@ -95,6 +96,7 @@ func scanNotifications(rows *sql.Rows) ([]*Notification, error) {
 			&actor.Username,
 			&actor.DisplayName,
 			&actor.IsAdmin,
+			&actorPasswordChangeRequiredInt,
 			&actorAvatar,
 			&actorCreatedAt,
 			&post.ID,
@@ -111,6 +113,7 @@ func scanNotifications(rows *sql.Rows) ([]*Notification, error) {
 			return nil, fmt.Errorf("scan notification row: %w", err)
 		}
 
+		actor.PasswordChangeRequired = actorPasswordChangeRequiredInt != 0
 		actor.AvatarFilename = actorAvatar.String
 		actor.AvatarURL = BuildAvatarURL(actor.ID, actor.AvatarFilename)
 		actor.CreatedAt = actorCreatedAt.Time

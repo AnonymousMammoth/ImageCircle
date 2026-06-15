@@ -112,8 +112,8 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	// Return user without password hash
 	user.PasswordHash = ""
 	utils.RespondJSON(c, http.StatusOK, gin.H{
-		"token":   token,
-		"user":    user,
+		"token":      token,
+		"user":       user,
 		"expires_at": expiry.Format(time.RFC3339),
 	})
 }
@@ -125,13 +125,22 @@ func (h *AuthHandler) Refresh(c *gin.Context) {
 	isAdmin := c.GetBool("is_admin")
 
 	// Extract and revoke the current token so it cannot be used again.
+	// Check both the Authorization header and the session cookie.
+	var oldToken string
 	authHeader := c.GetHeader("Authorization")
 	if authHeader != "" {
 		parts := strings.SplitN(authHeader, " ", 2)
 		if len(parts) == 2 && strings.EqualFold(parts[0], "Bearer") {
-			tokenString := parts[1]
-			_ = models.DeleteSessionByToken(h.DB, tokenString)
+			oldToken = parts[1]
 		}
+	}
+	if oldToken == "" {
+		if cookie, err := c.Cookie("circle_session"); err == nil && cookie != "" {
+			oldToken = cookie
+		}
+	}
+	if oldToken != "" {
+		_ = models.DeleteSessionByToken(h.DB, oldToken)
 	}
 
 	token, expiry, err := utils.GenerateToken(userID, username, isAdmin, h.JWTSecret)
@@ -225,8 +234,8 @@ func (h *AuthHandler) ChangePassword(c *gin.Context) {
 	setSessionCookie(c, token, expiry, h.CookieSecure)
 
 	utils.RespondJSON(c, http.StatusOK, gin.H{
-		"token":   token,
-		"success": true,
+		"token":      token,
+		"success":    true,
 		"expires_at": expiry.Format(time.RFC3339),
 	})
 }

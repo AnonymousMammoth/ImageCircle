@@ -5,14 +5,27 @@ import (
 	"fmt"
 )
 
+// ErrPostNotFound indicates that the referenced post does not exist.
+var ErrPostNotFound = sql.ErrNoRows
+
 // ToggleLike adds or removes a like for a post by a user.
 // Returns true if the post is now liked, false if unliked.
+// If the post does not exist, it returns ErrPostNotFound instead of a FK error.
 func ToggleLike(db *sql.DB, postID, userID int64) (bool, error) {
 	tx, err := db.Begin()
 	if err != nil {
 		return false, fmt.Errorf("begin transaction: %w", err)
 	}
 	defer tx.Rollback()
+
+	// Verify post exists inside the transaction to avoid TOCTOU races.
+	var postExists bool
+	if err := tx.QueryRow(`SELECT EXISTS(SELECT 1 FROM posts WHERE id = ?)`, postID).Scan(&postExists); err != nil {
+		return false, fmt.Errorf("check post exists: %w", err)
+	}
+	if !postExists {
+		return false, ErrPostNotFound
+	}
 
 	// Check if like already exists
 	var existingID int64
@@ -60,18 +73,4 @@ func GetLikeCount(db *sql.DB, postID int64) (int, error) {
 		return 0, fmt.Errorf("count likes: %w", err)
 	}
 	return count, nil
-}
-
-// HasLiked checks whether a user has liked a post.
-func HasLiked(db *sql.DB, postID, userID int64) (bool, error) {
-	query := `SELECT 1 FROM likes WHERE post_id = ? AND user_id = ?`
-	var dummy int
-	err := db.QueryRow(query, postID, userID).Scan(&dummy)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return false, nil
-		}
-		return false, fmt.Errorf("check liked: %w", err)
-	}
-	return true, nil
 }

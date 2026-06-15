@@ -69,18 +69,7 @@ struct NotificationsView: View {
     
     @ViewBuilder
     private func actorAvatar(for user: User) -> some View {
-        if let filename = user.avatarFilename,
-           !filename.isEmpty,
-           let url = MediaURL.url(userID: user.id, filename: filename) {
-            KFImage(url)
-                .resizable()
-                .placeholder { placeholderAvatar(name: user.username) }
-                .aspectRatio(contentMode: .fill)
-                .clipShape(Circle())
-        } else {
-            placeholderAvatar(name: user.username)
-                .clipShape(Circle())
-        }
+        AvatarImage(user: user, size: 44)
     }
     
     private func notificationText(for notification: AppNotification) -> AttributedString {

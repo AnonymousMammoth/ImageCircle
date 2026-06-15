@@ -4,6 +4,8 @@
 
 const searchComponent = {
     results: [],
+    query: '',
+    loadedQuery: '',
     isSearching: false,
     mountToken: null,
 
@@ -28,28 +30,41 @@ const searchComponent = {
         const results = createEl('div', { id: 'search-results', className: 'search-results' });
         container.appendChild(results);
 
-        const doSearch = debounce((query) => this.search(query, token), 300);
+        const doSearch = debounce((q) => this.search(q, token), 300);
         input.addEventListener('input', (e) => {
-            const query = e.target.value.trim();
-            if (!query) {
+            this.query = e.target.value.trim();
+            if (!this.query) {
                 this.results = [];
+                this.loadedQuery = '';
                 this.renderResults(results, token);
                 return;
             }
-            doSearch(query);
+            doSearch(this.query);
         });
+
+        if (this.query) {
+            input.value = this.query;
+            if (this.loadedQuery === this.query && this.results.length > 0) {
+                this.renderResults(results, token);
+            } else {
+                doSearch(this.query);
+            }
+        }
 
         input.focus();
     },
 
     async search(query, token) {
         this.isSearching = true;
+        this.query = query;
         const results = document.getElementById('search-results');
         if (results) this.renderResults(results, token);
         try {
             this.results = await searchUsers(query);
+            this.loadedQuery = query;
         } catch (err) {
             this.results = [];
+            this.loadedQuery = '';
         } finally {
             this.isSearching = false;
             if (token && token.isActive()) {

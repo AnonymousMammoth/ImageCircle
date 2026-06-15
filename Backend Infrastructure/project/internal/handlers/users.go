@@ -2,12 +2,14 @@ package handlers
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/mattn/go-sqlite3"
 
 	"circle/internal/models"
 	"circle/internal/storage"
@@ -486,7 +488,13 @@ func isUniqueViolation(err error) bool {
 	if err == nil {
 		return false
 	}
-	return strings.Contains(err.Error(), "UNIQUE constraint failed")
+
+	var sqliteErr *sqlite3.Error
+	if errors.As(err, &sqliteErr) {
+		return sqliteErr.Code == sqlite3.ErrConstraint || sqliteErr.ExtendedCode == sqlite3.ErrConstraintUnique
+	}
+
+	return false
 }
 
 // getUserMediaFiles retrieves all media file paths for a user from posts and stories.

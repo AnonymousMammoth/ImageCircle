@@ -21,7 +21,7 @@ struct AppNotification: Codable, Identifiable {
         case actor
         case post
         case comment
-        case createdAt
+        case createdAt = "created_at"
     }
     
     var isLike: Bool { type == "like" }
@@ -43,7 +43,7 @@ struct NotificationPost: Codable, Identifiable {
         case caption
         case mediaURL = "media_url"
         case thumbnailURL = "thumbnail_url"
-        case createdAt
+        case createdAt = "created_at"
     }
 }
 
@@ -56,6 +56,6 @@ struct NotificationComment: Codable, Identifiable {
     enum CodingKeys: String, CodingKey {
         case id
         case text
-        case createdAt
+        case createdAt = "created_at"
     }
 }

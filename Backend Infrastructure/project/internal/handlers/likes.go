@@ -26,19 +26,12 @@ func (h *LikeHandler) ToggleLike(c *gin.Context) {
 		return
 	}
 
-	// Verify post exists
-	_, err = models.GetPostByID(h.DB, postID)
+	liked, err := models.ToggleLike(h.DB, postID, userID)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			utils.RespondError(c, http.StatusNotFound, "post not found")
 			return
 		}
-		utils.RespondError(c, http.StatusInternalServerError, "failed to retrieve post")
-		return
-	}
-
-	liked, err := models.ToggleLike(h.DB, postID, userID)
-	if err != nil {
 		utils.RespondError(c, http.StatusInternalServerError, "failed to toggle like")
 		return
 	}

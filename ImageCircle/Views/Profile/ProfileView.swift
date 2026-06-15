@@ -26,6 +26,7 @@ struct ProfileView: View {
     @State private var avatarErrorMessage: String?
     @State private var showAvatarError = false
     @State private var refreshTrigger = UUID()
+    @State private var profileUser: User? = nil
     
     private var isCurrentUser: Bool {
         guard let user = user, let current = auth.currentUser else { return true }
@@ -86,6 +87,9 @@ struct ProfileView: View {
         } message: { message in
             Text(message)
         }
+        .navigationDestination(item: $profileUser) { user in
+            ProfileView(user: user)
+        }
     }
     
     private var profileHeader: some View {
@@ -104,17 +108,10 @@ struct ProfileView: View {
     
     private var avatarView: some View {
         ZStack(alignment: .bottomTrailing) {
-            if let filename = displayUser?.avatarFilename,
-               !filename.isEmpty,
-               let url = MediaURL.url(userID: displayUser?.id ?? 0, filename: filename) {
-                KFImage(url)
-                    .resizable()
-                    .placeholder { placeholderAvatar(name: displayUser?.username ?? "") }
-                    .aspectRatio(contentMode: .fill)
-                    .frame(width: 80, height: 80)
-                    .clipShape(Circle())
+            if let displayUser = displayUser {
+                AvatarImage(user: displayUser, size: 80)
             } else {
-                placeholderAvatar(name: displayUser?.username ?? "")
+                placeholderAvatar(name: "")
                     .frame(width: 80, height: 80)
                     .clipShape(Circle())
             }
@@ -178,7 +175,8 @@ struct ProfileView: View {
                     post: post,
                     onLikeChanged: { refreshTrigger = UUID() },
                     onCommentTapped: { commentPost = post },
-                    onDelete: { refreshTrigger = UUID() }
+                    onDelete: { refreshTrigger = UUID() },
+                    onProfileTapped: { profileUser = $0 }
                 )
                 .id(post.id)
             }

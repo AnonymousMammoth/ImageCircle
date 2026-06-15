@@ -3,6 +3,8 @@
  */
 
 const postCardComponent = {
+    _pendingLikes: new Set(),
+
     render(post, onChange, onComment) {
         const wrapper = createEl('div', { className: 'post-card', 'data-post-id': post.id });
 
@@ -31,6 +33,8 @@ const postCardComponent = {
         displayName.style.cursor = 'pointer';
         displayName.addEventListener('click', () => router.navigate('/profile/' + post.user.id));
         const username = createEl('div', { className: 'username', text: '@' + post.user.username });
+        username.style.cursor = 'pointer';
+        username.addEventListener('click', () => router.navigate('/profile/' + post.user.id));
         meta.appendChild(displayName);
         meta.appendChild(username);
 
@@ -53,7 +57,7 @@ const postCardComponent = {
     renderMedia(post) {
         const url = postMediaUrl(post);
         const wrap = createEl('div', { style: 'position:relative;' });
-        const img = createEl('img', { className: 'post-media', src: url, alt: '' });
+        const img = createEl('img', { className: 'post-media', src: url, alt: '', loading: 'lazy' });
         img.onerror = function() { this.style.display = 'none'; };
 
         let lastTap = 0;
@@ -125,8 +129,17 @@ const postCardComponent = {
     },
 
     async toggleLike(post) {
+        if (this._pendingLikes.has(post.id)) return;
+        this._pendingLikes.add(post.id);
+
         const card = document.querySelector('.post-card[data-post-id="' + post.id + '"]');
-        if (!card) return;
+        if (!card) {
+            this._pendingLikes.delete(post.id);
+            return;
+        }
+
+        const previousHasLiked = post.has_liked;
+        const previousCount = post.likes_count;
 
         // Optimistic update
         post.has_liked = !post.has_liked;
@@ -140,9 +153,11 @@ const postCardComponent = {
             this.updateCardState(card, post);
         } catch (err) {
             // Revert
-            post.has_liked = !post.has_liked;
-            post.likes_count += post.has_liked ? 1 : -1;
+            post.has_liked = previousHasLiked;
+            post.likes_count = previousCount;
             this.updateCardState(card, post);
+        } finally {
+            this._pendingLikes.delete(post.id);
         }
     },
 

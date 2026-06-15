@@ -166,17 +166,6 @@ func DeletePost(db *sql.DB, id int64) error {
 	return nil
 }
 
-// GetPostMediaFilename returns the media and thumbnail filenames for a post.
-func GetPostMediaFilename(db *sql.DB, id int64) (string, string, error) {
-	query := `SELECT media_filename, thumbnail_filename FROM posts WHERE id = ?`
-	var mediaFilename, thumbnailFilename sql.NullString
-	err := db.QueryRow(query, id).Scan(&mediaFilename, &thumbnailFilename)
-	if err != nil {
-		return "", "", fmt.Errorf("select media filename: %w", err)
-	}
-	return mediaFilename.String, thumbnailFilename.String, nil
-}
-
 // scanPost scans a single post row. If requestingUserID > 0, scans has_liked column.
 func scanPost(row *sql.Row, requestingUserID int64) (*Post, error) {
 	var p Post

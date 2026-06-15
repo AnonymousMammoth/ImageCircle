@@ -9,14 +9,27 @@ RED = (255, 59, 48, 255)          # iOS-style red
 DARK_RED = (180, 30, 30, 255)      # Dark mode red
 WHITE = (255, 255, 255, 255)
 TRANSPARENT = (0, 0, 0, 0)
-FONT_PATH = "/System/Library/Fonts/Supplemental/Arial.ttf"
 OUT_DIR = "ImageCircle/Assets.xcassets/AppIcon.appiconset"
+
+
+def find_font():
+    """Return the first available system font, or None for PIL's default."""
+    candidates = [
+        "/System/Library/Fonts/Supplemental/Arial.ttf",
+        "/Library/Fonts/Arial.ttf",
+        "/System/Library/Fonts/Helvetica.ttc",
+        "/System/Library/Fonts/HelveticaNeue.ttc",
+    ]
+    for path in candidates:
+        if os.path.exists(path):
+            return path
+    return None
 
 
 def make_main():
     img = Image.new("RGBA", (SIZE, SIZE), RED)
     draw = ImageDraw.Draw(img)
-    font = ImageFont.truetype(FONT_PATH, 420)
+    font = _monogram_font()
     draw.text((SIZE // 2, SIZE // 2 + 10), "IC", font=font, fill=WHITE, anchor="mm")
     return img.convert("RGB")
 
@@ -24,7 +37,7 @@ def make_main():
 def make_dark():
     img = Image.new("RGBA", (SIZE, SIZE), DARK_RED)
     draw = ImageDraw.Draw(img)
-    font = ImageFont.truetype(FONT_PATH, 420)
+    font = _monogram_font()
     draw.text((SIZE // 2, SIZE // 2 + 10), "IC", font=font, fill=WHITE, anchor="mm")
     return img.convert("RGB")
 
@@ -37,7 +50,7 @@ def make_tinted():
     margin = 12
     draw.ellipse([margin, margin, SIZE - margin, SIZE - margin], fill=WHITE)
 
-    font = ImageFont.truetype(FONT_PATH, 420)
+    font = _monogram_font()
     mask = Image.new("L", (SIZE, SIZE), 0)
     mask_draw = ImageDraw.Draw(mask)
     mask_draw.text((SIZE // 2, SIZE // 2 + 10), "IC", font=font, fill=255, anchor="mm")
@@ -46,6 +59,13 @@ def make_tinted():
     erased = Image.new("RGBA", (SIZE, SIZE), TRANSPARENT)
     result = Image.composite(erased, img, mask)
     return result
+
+
+def _monogram_font():
+    font_path = find_font()
+    if font_path:
+        return ImageFont.truetype(font_path, 420)
+    return ImageFont.load_default()
 
 
 def main():

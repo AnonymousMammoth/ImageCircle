@@ -15,7 +15,6 @@ type Config struct {
 	JWTSecret     []byte
 	MaxMediaSize  int64
 	AllowedOrigin string
-	AdminBind     string
 	RateLimit     int
 	PasswordCost  int
 	ServerBind    string
@@ -48,8 +47,6 @@ func Load() (*Config, error) {
 	if allowedOrigin == "" {
 		return nil, fmt.Errorf("CIRCLE_ALLOWED_ORIGIN is required")
 	}
-
-	adminBind := getEnv("CIRCLE_ADMIN_BIND", "127.0.0.1")
 
 	rateLimitStr := getEnv("CIRCLE_RATE_LIMIT", "100")
 	rateLimit, err := strconv.Atoi(rateLimitStr)
@@ -89,7 +86,6 @@ func Load() (*Config, error) {
 		JWTSecret:     jwtSecret,
 		MaxMediaSize:  maxMediaSize,
 		AllowedOrigin: allowedOrigin,
-		AdminBind:     adminBind,
 		RateLimit:     rateLimit,
 		PasswordCost:  passwordCost,
 		ServerBind:    "", // all interfaces

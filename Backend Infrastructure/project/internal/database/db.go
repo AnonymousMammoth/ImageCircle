@@ -26,8 +26,10 @@ func New(dbPath string) (*DB, error) {
 		return nil, fmt.Errorf("open database: %w", err)
 	}
 
-	conn.SetMaxOpenConns(25)
-	conn.SetMaxIdleConns(25)
+	// SQLite with WAL mode allows concurrent reads but only one writer at a time.
+	// Limit the pool to a single open connection to eliminate writer contention.
+	conn.SetMaxOpenConns(1)
+	conn.SetMaxIdleConns(1)
 
 	if err := applyPragmas(conn); err != nil {
 		_ = conn.Close()

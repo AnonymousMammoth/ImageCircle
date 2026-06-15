@@ -109,8 +109,9 @@ const settingsComponent = {
     async submitChangePassword(current, newPass, confirm, errorEl, successEl, btn) {
         setText(errorEl, '');
         setText(successEl, '');
-        if (newPass.length < 6) {
-            setText(errorEl, 'Password must be at least 6 characters.');
+        const strengthError = validatePasswordStrength(newPass);
+        if (strengthError) {
+            setText(errorEl, strengthError);
             return;
         }
         if (newPass !== confirm) {

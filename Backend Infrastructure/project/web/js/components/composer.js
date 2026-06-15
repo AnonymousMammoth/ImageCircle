@@ -7,6 +7,7 @@ const composerComponent = {
     selectedFile: null,
     mediaType: 'image',
     isPosting: false,
+    previewObjectUrl: null,
 
     render(container) {
         clearEl(container);
@@ -31,6 +32,13 @@ const composerComponent = {
         this.renderContent(contentArea);
     },
 
+    revokePreviewUrl() {
+        if (this.previewObjectUrl) {
+            URL.revokeObjectURL(this.previewObjectUrl);
+            this.previewObjectUrl = null;
+        }
+    },
+
     renderModeToggle() {
         const wrap = createEl('div', { className: 'segmented-control' });
         const options = [
@@ -42,6 +50,7 @@ const composerComponent = {
             btn.textContent = opt.label;
             btn.addEventListener('click', () => {
                 this.mode = opt.key;
+                this.revokePreviewUrl();
                 this.selectedFile = null;
                 this.mediaType = 'image';
                 const content = document.getElementById('composer-content');
@@ -64,17 +73,17 @@ const composerComponent = {
     },
 
     renderPhotoComposer() {
-        const wrap = createEl('div', { style: 'display:flex;flex-direction:column;flex:1;' });
+        const wrap = createEl('div', { className: 'composer-mode-wrap composer-photo-wrap', style: 'display:flex;flex-direction:column;flex:1;' });
 
         if (this.selectedFile) {
+            this.revokePreviewUrl();
             const preview = createEl('div', { className: 'composer-preview' });
             const url = URL.createObjectURL(this.selectedFile);
+            this.previewObjectUrl = url;
             if (this.mediaType === 'video') {
                 preview.appendChild(createEl('video', { src: url, controls: true, autoplay: false }));
             } else {
-                const img = createEl('img', { src: url });
-                img.onload = () => URL.revokeObjectURL(url);
-                preview.appendChild(img);
+                preview.appendChild(createEl('img', { src: url }));
             }
             wrap.appendChild(preview);
 
@@ -128,7 +137,7 @@ const composerComponent = {
     },
 
     renderTextComposer() {
-        const wrap = createEl('div', { style: 'display:flex;flex-direction:column;flex:1;padding:16px;' });
+        const wrap = createEl('div', { className: 'composer-mode-wrap composer-text-wrap', style: 'display:flex;flex-direction:column;flex:1;padding:16px;' });
         const avatar = renderAvatar(state.user, 40);
         const editorWrap = createEl('div', { style: 'display:flex;gap:12px;flex:1;' });
         const editor = createEl('textarea', {
@@ -149,7 +158,15 @@ const composerComponent = {
     },
 
     handleFileSelect(file) {
-        if (!file) return;
+        if (!file) {
+            this.revokePreviewUrl();
+            this.selectedFile = null;
+            this.mediaType = 'image';
+            const content = document.getElementById('composer-content');
+            if (content) this.renderContent(content);
+            return;
+        }
+        this.revokePreviewUrl();
         this.selectedFile = file;
         if (file.type.startsWith('video/')) {
             this.mediaType = 'video';
@@ -184,6 +201,9 @@ const composerComponent = {
             } else {
                 await createMediaPost(this.selectedFile, caption, null, onProgress);
             }
+            this.revokePreviewUrl();
+            this.selectedFile = null;
+            this.mediaType = 'image';
             router.navigate('/');
         } catch (err) {
             showAlert(err.message);

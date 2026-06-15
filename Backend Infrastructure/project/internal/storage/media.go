@@ -113,6 +113,19 @@ func (s *MediaStore) GetFullPath(relativePath string) string {
 	return filepath.Join(s.BasePath, relativePath)
 }
 
+// DetectMimeType reads the first 512 bytes from a file and returns the detected MIME type.
+func DetectMimeType(file multipart.File) (string, error) {
+	buf := make([]byte, 512)
+	n, err := file.Read(buf)
+	if err != nil && err != io.EOF {
+		return "", fmt.Errorf("failed to read file header: %w", err)
+	}
+	if n == 0 {
+		return "", fmt.Errorf("empty file")
+	}
+	return detectMimeType(buf[:n]), nil
+}
+
 // ValidateNoGPS checks if an image contains EXIF GPS data.
 // Returns an error if GPS data is found, indicating the upload should be rejected.
 // Skips the check for HEIC files and video files due to limited EXIF support.

@@ -38,6 +38,13 @@ const shell = {
 
     render() {
         const app = document.getElementById('app');
+
+        if (this.root && this.root.parentNode === app) {
+            this.updateActiveTab();
+            this.handleRoute();
+            return;
+        }
+
         clearEl(app);
 
         this.root = createEl('div', { className: 'screen' });
@@ -71,7 +78,8 @@ const shell = {
         this.root.appendChild(tabBar);
         app.appendChild(this.root);
 
-        this.handleRoute();
+        // The initial route will be handled by the router's route event.
+        this.updateActiveTab();
     },
 
     getActiveTab() {

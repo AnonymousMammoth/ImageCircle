@@ -24,15 +24,15 @@ struct Story: Codable, Identifiable, Hashable {
     enum CodingKeys: String, CodingKey {
         case id
         case user
-        case mediaFilename
-        case mediaURL
-        case thumbnailFilename
-        case thumbnailURL
-        case mediaType
-        case createdAt
-        case expiresAt
+        case mediaFilename = "media_filename"
+        case mediaURL = "media_url"
+        case thumbnailFilename = "thumbnail_filename"
+        case thumbnailURL = "thumbnail_url"
+        case mediaType = "media_type"
+        case createdAt = "created_at"
+        case expiresAt = "expires_at"
         case viewed
-        case viewCount
+        case viewCount = "view_count"
     }
     
     var isImage: Bool { mediaType == "image" }

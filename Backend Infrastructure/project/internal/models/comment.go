@@ -6,6 +6,11 @@ import (
 	"time"
 )
 
+// rowScanner is a common interface for sql.Row and sql.Rows.
+type rowScanner interface {
+	Scan(dest ...interface{}) error
+}
+
 // Comment represents a text reply on a post.
 type Comment struct {
 	ID        int64     `json:"id"`
@@ -17,12 +22,26 @@ type Comment struct {
 }
 
 // CreateComment inserts a new comment and returns the created record.
+// It verifies the post exists inside the transaction to avoid TOCTOU races.
 func CreateComment(db *sql.DB, postID, userID int64, text string) (*Comment, error) {
-	query := `
+	tx, err := db.Begin()
+	if err != nil {
+		return nil, fmt.Errorf("begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	var postExists bool
+	if err := tx.QueryRow(`SELECT EXISTS(SELECT 1 FROM posts WHERE id = ?)`, postID).Scan(&postExists); err != nil {
+		return nil, fmt.Errorf("check post exists: %w", err)
+	}
+	if !postExists {
+		return nil, sql.ErrNoRows
+	}
+
+	result, err := tx.Exec(`
 		INSERT INTO comments (post_id, user_id, text)
 		VALUES (?, ?, ?)
-	`
-	result, err := db.Exec(query, postID, userID, text)
+	`, postID, userID, text)
 	if err != nil {
 		return nil, fmt.Errorf("insert comment: %w", err)
 	}
@@ -32,7 +51,16 @@ func CreateComment(db *sql.DB, postID, userID int64, text string) (*Comment, err
 		return nil, fmt.Errorf("last insert id: %w", err)
 	}
 
-	return GetCommentByID(db, id)
+	comment, err := getCommentByIDTx(tx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("commit comment: %w", err)
+	}
+
+	return comment, nil
 }
 
 // GetCommentsByPost retrieves comments for a post ordered by created_at descending,
@@ -41,7 +69,7 @@ func GetCommentsByPost(db *sql.DB, postID int64, limit, offset int) ([]*Comment,
 	query := `
 		SELECT
 			c.id, c.post_id, c.user_id, c.text, c.created_at,
-			u.id, u.username, u.display_name, u.is_admin, u.password_change_required, u.created_at
+			u.id, u.username, u.display_name, u.is_admin, u.password_change_required, u.avatar_filename, u.created_at
 		FROM comments c
 		JOIN users u ON c.user_id = u.id
 		WHERE c.post_id = ?
@@ -62,12 +90,26 @@ func GetCommentByID(db *sql.DB, id int64) (*Comment, error) {
 	query := `
 		SELECT
 			c.id, c.post_id, c.user_id, c.text, c.created_at,
-			u.id, u.username, u.display_name, u.is_admin, u.password_change_required, u.created_at
+			u.id, u.username, u.display_name, u.is_admin, u.password_change_required, u.avatar_filename, u.created_at
 		FROM comments c
 		JOIN users u ON c.user_id = u.id
 		WHERE c.id = ?
 	`
 	row := db.QueryRow(query, id)
+	return scanComment(row)
+}
+
+// getCommentByIDTx retrieves a single comment by primary key within a transaction.
+func getCommentByIDTx(tx *sql.Tx, id int64) (*Comment, error) {
+	query := `
+		SELECT
+			c.id, c.post_id, c.user_id, c.text, c.created_at,
+			u.id, u.username, u.display_name, u.is_admin, u.password_change_required, u.avatar_filename, u.created_at
+		FROM comments c
+		JOIN users u ON c.user_id = u.id
+		WHERE c.id = ?
+	`
+	row := tx.QueryRow(query, id)
 	return scanComment(row)
 }
 
@@ -90,23 +132,13 @@ func DeleteComment(db *sql.DB, id int64) error {
 	return nil
 }
 
-// GetCommentCount returns the number of comments on a post.
-func GetCommentCount(db *sql.DB, postID int64) (int, error) {
-	query := `SELECT COUNT(*) FROM comments WHERE post_id = ?`
-	var count int
-	err := db.QueryRow(query, postID).Scan(&count)
-	if err != nil {
-		return 0, fmt.Errorf("count comments: %w", err)
-	}
-	return count, nil
-}
-
 // scanComment scans a single comment row with user info.
-func scanComment(row *sql.Row) (*Comment, error) {
+func scanComment(row rowScanner) (*Comment, error) {
 	var c Comment
 	var u User
 	var isAdminInt int
 	var passwordChangeRequiredInt int
+	var avatarFilename sql.NullString
 
 	err := row.Scan(
 		&c.ID,
@@ -119,6 +151,7 @@ func scanComment(row *sql.Row) (*Comment, error) {
 		&u.DisplayName,
 		&isAdminInt,
 		&passwordChangeRequiredInt,
+		&avatarFilename,
 		&u.CreatedAt,
 	)
 	if err != nil {
@@ -130,6 +163,8 @@ func scanComment(row *sql.Row) (*Comment, error) {
 
 	u.IsAdmin = isAdminInt != 0
 	u.PasswordChangeRequired = passwordChangeRequiredInt != 0
+	u.AvatarFilename = avatarFilename.String
+	u.AvatarURL = BuildAvatarURL(u.ID, u.AvatarFilename)
 	c.User = &u
 
 	return &c, nil
@@ -144,6 +179,7 @@ func scanComments(rows *sql.Rows) ([]*Comment, error) {
 		var u User
 		var isAdminInt int
 		var passwordChangeRequiredInt int
+		var avatarFilename sql.NullString
 
 		err := rows.Scan(
 			&c.ID,
@@ -156,6 +192,7 @@ func scanComments(rows *sql.Rows) ([]*Comment, error) {
 			&u.DisplayName,
 			&isAdminInt,
 			&passwordChangeRequiredInt,
+			&avatarFilename,
 			&u.CreatedAt,
 		)
 		if err != nil {
@@ -164,6 +201,8 @@ func scanComments(rows *sql.Rows) ([]*Comment, error) {
 
 		u.IsAdmin = isAdminInt != 0
 		u.PasswordChangeRequired = passwordChangeRequiredInt != 0
+		u.AvatarFilename = avatarFilename.String
+		u.AvatarURL = BuildAvatarURL(u.ID, u.AvatarFilename)
 		c.User = &u
 
 		comments = append(comments, &c)

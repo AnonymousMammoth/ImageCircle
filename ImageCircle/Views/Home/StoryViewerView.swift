@@ -21,7 +21,6 @@ struct StoryViewerView: View {
     @State private var isPaused = false
     @State private var dragOffset: CGSize = .zero
     @State private var viewedIds = Set<Int>()
-    @State private var photoTimer: Timer?
     @State private var viewMarkingTask: Task<Void, Never>?
     @State private var photoStartTime: Date?
     @State private var photoElapsedBeforePause: CGFloat = 0
@@ -29,6 +28,7 @@ struct StoryViewerView: View {
     @State private var loadError: Error?
     @State private var showDeleteConfirmation = false
     @State private var isDeleting = false
+    @State private var photoTimerCancellable: AnyCancellable?
     
     @StateObject private var videoState = VideoPlayerState()
     
@@ -241,9 +241,10 @@ struct StoryViewerView: View {
             }
             .accessibilityLabel("Close stories")
             .allowsHitTesting(true)
-            
+
             Spacer()
-            
+                .allowsHitTesting(false)
+
             if let story = currentStory, AuthManager.shared.canDelete(contentUserID: story.user.id) {
                 Menu {
                     Button(role: .destructive) {
@@ -263,7 +264,6 @@ struct StoryViewerView: View {
                 .allowsHitTesting(true)
             }
         }
-        .allowsHitTesting(false)
     }
     
     private func tapZones(width: CGFloat, safeAreaTop: CGFloat) -> some View {
@@ -313,20 +313,7 @@ struct StoryViewerView: View {
     }
     
     private func avatarView(for user: User) -> some View {
-        Group {
-            if let filename = user.avatarFilename,
-               !filename.isEmpty,
-               let url = MediaURL.url(userID: user.id, filename: filename) {
-                KFImage(url)
-                    .resizable()
-                    .placeholder { placeholderAvatar(name: user.username) }
-                    .aspectRatio(contentMode: .fill)
-                    .clipShape(Circle())
-            } else {
-                placeholderAvatar(name: user.username)
-                    .clipShape(Circle())
-            }
-        }
+        AvatarImage(user: user, size: 36)
     }
     
     private var dragGesture: some Gesture {
@@ -394,16 +381,17 @@ struct StoryViewerView: View {
     private func startPhotoTimer() {
         invalidatePhotoTimer()
         photoStartTime = Date()
-        photoTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { timer in
-            guard !isPaused else { return }
-            let elapsed = photoElapsedBeforePause + CGFloat(Date().timeIntervalSince(photoStartTime ?? Date()))
-            progress = min(elapsed / storyDuration, 1.0)
-            if elapsed >= storyDuration {
-                timer.invalidate()
-                photoTimer = nil
-                nextStory()
+        photoTimerCancellable = Timer.publish(every: 0.05, on: .main, in: .common)
+            .autoconnect()
+            .sink { _ in
+                guard !isPaused else { return }
+                let elapsed = photoElapsedBeforePause + CGFloat(Date().timeIntervalSince(photoStartTime ?? Date()))
+                progress = min(elapsed / storyDuration, 1.0)
+                if elapsed >= storyDuration {
+                    invalidatePhotoTimer()
+                    nextStory()
+                }
             }
-        }
     }
     
     private func resumePhotoTimer() {
@@ -411,8 +399,8 @@ struct StoryViewerView: View {
     }
     
     private func invalidatePhotoTimer() {
-        photoTimer?.invalidate()
-        photoTimer = nil
+        photoTimerCancellable?.cancel()
+        photoTimerCancellable = nil
         if let startTime = photoStartTime {
             photoElapsedBeforePause += CGFloat(Date().timeIntervalSince(startTime))
             photoStartTime = nil
@@ -538,9 +526,9 @@ final class VideoPlayerState: ObservableObject {
         reset()
         let item = AVPlayerItem(url: url)
         let player = AVPlayer(playerItem: item)
-        player.isMuted = true
+        player.isMuted = false
         self.player = player
-        
+
         finishedObserver = NotificationCenter.default.addObserver(
             forName: .AVPlayerItemDidPlayToEndTime,
             object: item,
@@ -548,7 +536,7 @@ final class VideoPlayerState: ObservableObject {
         ) { [weak self] _ in
             self?.didFinish = true
         }
-        
+
         player.play()
     }
     

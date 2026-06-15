@@ -24,8 +24,7 @@ struct SearchView: View {
                     showProfile = true
                 }) {
                     HStack(spacing: 12) {
-                        placeholderAvatar(name: user.username)
-                            .frame(width: 40, height: 40)
+                        AvatarImage(user: user, size: 40)
                         VStack(alignment: .leading, spacing: 2) {
                             Text(user.username)
                                 .font(.headline)

@@ -13,6 +13,7 @@ struct PostCardView: View {
     let onLikeChanged: () -> Void
     let onCommentTapped: () -> Void
     let onDelete: () -> Void
+    let onProfileTapped: (User) -> Void
     
     @State private var postState: Post
     @State private var showHeartOverlay = false
@@ -20,13 +21,24 @@ struct PostCardView: View {
     @State private var isLiking = false
     @State private var showDeleteConfirmation = false
     @State private var isDeleting = false
+    @State private var showDeleteError = false
+    @State private var deleteErrorMessage: String?
     
-    init(post: Post, onLikeChanged: @escaping () -> Void, onCommentTapped: @escaping () -> Void, onDelete: @escaping () -> Void = {}) {
+    private let likeLock = NSLock()
+    
+    init(
+        post: Post,
+        onLikeChanged: @escaping () -> Void,
+        onCommentTapped: @escaping () -> Void,
+        onDelete: @escaping () -> Void = {},
+        onProfileTapped: @escaping (User) -> Void = { _ in }
+    ) {
         self.post = post
         self._postState = State(initialValue: post)
         self.onLikeChanged = onLikeChanged
         self.onCommentTapped = onCommentTapped
         self.onDelete = onDelete
+        self.onProfileTapped = onProfileTapped
     }
     
     private var canDelete: Bool {
@@ -49,21 +61,29 @@ struct PostCardView: View {
         .onChange(of: post) { _, newPost in
             postState = newPost
         }
+        .alert("Could Not Delete Post", isPresented: $showDeleteError) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(deleteErrorMessage ?? "Something went wrong.")
+        }
     }
     
     private var header: some View {
         HStack(alignment: .top, spacing: 12) {
-            avatarView(for: postState.user)
-                .frame(width: 40, height: 40)
-                .clipShape(Circle())
-            
-            VStack(alignment: .leading, spacing: 2) {
-                Text(postState.user.displayName)
-                    .font(.subheadline.weight(.semibold))
-                Text("@\(postState.user.username)")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+            Button(action: { onProfileTapped(postState.user) }) {
+                HStack(alignment: .top, spacing: 12) {
+                    AvatarImage(user: postState.user, size: 40)
+                    
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(postState.user.displayName)
+                            .font(.subheadline.weight(.semibold))
+                        Text("@\(postState.user.username)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
             }
+            .buttonStyle(.plain)
             
             Spacer()
             
@@ -181,8 +201,12 @@ struct PostCardView: View {
             
             if !postState.isTextOnly, let caption = postState.caption, !caption.isEmpty {
                 HStack(spacing: 4) {
-                    Text(postState.user.username)
-                        .font(.subheadline.weight(.semibold))
+                    Button(action: { onProfileTapped(postState.user) }) {
+                        Text(postState.user.username)
+                            .font(.subheadline.weight(.semibold))
+                    }
+                    .buttonStyle(.plain)
+                    
                     Text(caption)
                         .font(.subheadline)
                 }
@@ -201,24 +225,14 @@ struct PostCardView: View {
         .padding(.bottom, 12)
     }
     
-    private func avatarView(for user: User) -> some View {
-        Group {
-            if let filename = user.avatarFilename,
-               !filename.isEmpty,
-               let url = MediaURL.url(userID: user.id, filename: filename) {
-                KFImage(url)
-                    .resizable()
-                    .placeholder { placeholderAvatar(name: user.username) }
-                    .aspectRatio(contentMode: .fill)
-            } else {
-                placeholderAvatar(name: user.username)
-            }
-        }
-    }
-    
     private func toggleLike() {
-        guard !isLiking else { return }
+        likeLock.lock()
+        guard !isLiking else {
+            likeLock.unlock()
+            return
+        }
         isLiking = true
+        likeLock.unlock()
         
         // Optimistic update
         let currentlyLiked = postState.hasLiked
@@ -270,6 +284,8 @@ struct PostCardView: View {
             } catch {
                 await MainActor.run {
                     isDeleting = false
+                    deleteErrorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+                    showDeleteError = true
                 }
             }
         }

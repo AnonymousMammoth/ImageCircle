@@ -5,6 +5,7 @@
 const notificationsComponent = {
     notifications: [],
     isLoading: false,
+    hasLoaded: false,
     mountToken: null,
 
     render(container) {
@@ -23,7 +24,9 @@ const notificationsComponent = {
         container.appendChild(list);
 
         this.renderList(list);
-        this.loadData(token);
+        if (!this.hasLoaded) {
+            this.loadData(token);
+        }
     },
 
     renderList(list) {
@@ -96,6 +99,7 @@ const notificationsComponent = {
             const data = await fetchNotifications();
             if (!token.isActive()) return;
             this.notifications = data;
+            this.hasLoaded = true;
         } catch (err) {
             if (!token.isActive()) return;
             console.error(err);

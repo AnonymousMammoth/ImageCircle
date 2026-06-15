@@ -6,7 +6,10 @@ const profileComponent = {
     user: null,
     posts: [],
     filter: 'mixed',
+    hasLoaded: false,
+    cachedUserId: null,
     mountToken: null,
+    userNotFound: false,
 
     async render(container, userId) {
         if (this.mountToken) this.mountToken.cancel();
@@ -15,8 +18,18 @@ const profileComponent = {
 
         clearEl(container);
         container.className = 'screen-scroll tab-content';
+        this.userNotFound = false;
 
         const isCurrentUser = !userId || (state.user && String(state.user.id) === String(userId));
+        const cacheKey = isCurrentUser ? (state.user ? state.user.id : null) : userId;
+
+        if (this.hasLoaded && String(this.cachedUserId) === String(cacheKey) && !this.userNotFound) {
+            if (isCurrentUser) this.user = state.user;
+            this.renderHeader(container, isCurrentUser);
+            this.renderFilter(container);
+            this.renderGrid(container);
+            return;
+        }
 
         if (!isCurrentUser) {
             try {
@@ -25,12 +38,11 @@ const profileComponent = {
                 if (this.posts.length > 0) {
                     this.user = this.posts[0].user;
                 } else {
-                    this.user = { id: userId, username: 'User', display_name: 'User' };
+                    this.userNotFound = true;
                 }
             } catch (err) {
                 if (!token.isActive()) return;
-                showAlert(err.message);
-                this.user = { id: userId, username: 'User', display_name: 'User' };
+                this.userNotFound = true;
                 this.posts = [];
             }
         } else {
@@ -45,9 +57,27 @@ const profileComponent = {
         }
 
         if (!token.isActive()) return;
+        this.cachedUserId = cacheKey;
+        this.hasLoaded = true;
+
+        if (this.userNotFound) {
+            this.renderNotFound(container);
+            return;
+        }
+
         this.renderHeader(container, isCurrentUser);
         this.renderFilter(container);
         this.renderGrid(container);
+    },
+
+    renderNotFound(container) {
+        const wrap = createEl('div', { className: 'empty-state', style: 'padding-top:40px;' });
+        wrap.innerHTML = shell.icons.warning;
+        const title = createEl('h3', { text: 'User not found' });
+        const desc = createEl('p', { text: 'The profile you are looking for does not exist.' });
+        wrap.appendChild(title);
+        wrap.appendChild(desc);
+        container.appendChild(wrap);
     },
 
     renderHeader(container, isCurrentUser) {
@@ -236,8 +266,15 @@ const profileComponent = {
     },
 
     async refresh() {
+        this.hasLoaded = false;
+        this.cachedUserId = null;
+        this.userNotFound = false;
         const container = document.getElementById('main-content');
-        const userId = this.user && state.user && String(this.user.id) === String(state.user.id) ? null : this.user.id;
+        if (!this.user) {
+            if (container) this.render(container, null);
+            return;
+        }
+        const userId = state.user && String(this.user.id) === String(state.user.id) ? null : this.user.id;
         if (container) this.render(container, userId);
     }
 };

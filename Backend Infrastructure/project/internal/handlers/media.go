@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -39,15 +40,22 @@ func (h *MediaHandler) Upload(c *gin.Context) {
 	}
 	defer mediaFile.Close()
 
+	// Detect MIME type for validation
+	detectedMime, err := storage.DetectMimeType(mediaFile)
+	if err != nil {
+		utils.RespondError(c, http.StatusBadRequest, "failed to detect media type")
+		return
+	}
+
 	// Validate no GPS data in the image
-	detectedMime := detectMimeFromHeader(mediaHeader)
+	mediaFile.Seek(0, io.SeekStart)
 	if err := h.MediaStore.ValidateNoGPS(mediaFile, detectedMime); err != nil {
 		utils.RespondError(c, http.StatusBadRequest, "image contains location data")
 		return
 	}
 
 	// Reset file after GPS check
-	mediaFile.Seek(0, 0)
+	mediaFile.Seek(0, io.SeekStart)
 
 	// Save media file
 	_, filename, err := h.MediaStore.SaveMedia(userID, mediaFile, mediaHeader, h.MaxSize)
@@ -99,6 +107,6 @@ func (h *MediaHandler) Serve(c *gin.Context) {
 		return
 	}
 
-	c.Header("Cache-Control", "private")
+	c.Header("Cache-Control", "private, max-age=31536000, immutable")
 	c.File(absPath)
 }

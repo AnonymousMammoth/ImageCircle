@@ -26,11 +26,11 @@ The iOS app is a single-target SwiftUI project. State is held in a small number 
 `APIClient` configures a `JSONDecoder` with:
 
 ```swift
-decoder.keyDecodingStrategy = .convertFromSnakeCase
+decoder.keyDecodingStrategy = .useDefaultKeys
 decoder.dateDecodingStrategy = .iso8601
 ```
 
-and a matching `JSONEncoder`. Despite the global strategy, models still declare explicit `CodingKeys` for fields that benefit from clarity (e.g., `likesCount = "likes_count"`).
+and a matching `JSONEncoder`. Models declare explicit `CodingKeys` that match the backend field names exactly (e.g., `likesCount = "likes_count"`).
 
 Two `URLSession`s are used:
 
@@ -62,7 +62,6 @@ Both sessions use `HTTPCookieStorage.shared` and `httpShouldSetCookies = true` s
 | Create composer | `Views/Camera/CreateComposerView.swift` | Entry picker for camera, library, or text-only post. |
 | Camera / capture | `Views/Camera/CameraView.swift` | Tap the shutter for a photo, hold for video (up to 30s). Includes library picker. |
 | Media preview | `Views/Camera/MediaPreviewView.swift` | Preview, compression, and upload to feed or story. |
-| Text composer | `Views/Camera/TextPostComposerView.swift` | Twitter-style text-only composer. |
 | Profile | `Views/Profile/ProfileView.swift` | Header, avatar upload, stats, post grid. Uses `GET /api/users/:id/posts` with a feed fallback. |
 | Settings | `Views/Profile/SettingsView.swift` | Change password, admin panel link, logout + cache clear. |
 | Change password | `Views/Profile/ChangePasswordView.swift` | Self-service password change. |
