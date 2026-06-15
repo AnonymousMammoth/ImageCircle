@@ -400,6 +400,7 @@ func (h *UserHandler) UpdateAvatar(c *gin.Context) {
 	}
 
 	user.AvatarFilename = filename
+	user.AvatarURL = models.BuildAvatarURL(userID, filename)
 	if err := models.UpdateUser(h.DB, user); err != nil {
 		_ = h.MediaStore.DeleteMedia(strconv.FormatInt(userID, 10) + "/" + filename)
 		utils.RespondError(c, http.StatusInternalServerError, "failed to update avatar")

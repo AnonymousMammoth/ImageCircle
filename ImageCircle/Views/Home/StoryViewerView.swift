@@ -164,7 +164,9 @@ struct StoryViewerView: View {
                     errorPlaceholder(message: "Invalid story URL")
                 }
             } else if story.isVideo {
-                if let url = story.resolvedMediaURL {
+                if videoState.loadError != nil {
+                    errorPlaceholder(message: "Could not load video")
+                } else if let url = story.resolvedMediaURL {
                     VideoPlayer(player: videoState.player)
                         .id("story-\(story.id)-\(url.absoluteString)")
                         .aspectRatio(contentMode: .fit)
@@ -545,51 +547,87 @@ extension Array {
 final class VideoPlayerState: ObservableObject {
     @Published var player: AVPlayer?
     @Published var didFinish = false
+    @Published var loadError: Error?
     private var finishedObserver: NSObjectProtocol?
-    
+    private var downloadTask: Task<Void, Never>?
+    private var localFileURL: URL?
+
     func load(url: URL) {
         reset()
 
-        // Send the JWT because /media/* requires authentication.
-        var headers: [String: String] = [:]
-        if let token = APIClient.shared.token {
-            headers["Authorization"] = "Bearer \(token)"
-        }
-        let asset = AVURLAsset(
-            url: url,
-            options: ["AVURLAssetHTTPHeaderFieldsKey": headers]
-        )
-        let item = AVPlayerItem(asset: asset)
-        let player = AVPlayer(playerItem: item)
-        player.isMuted = false
-        self.player = player
+        downloadTask = Task {
+            do {
+                let localURL = try await downloadMedia(url: url)
+                guard !Task.isCancelled else { return }
+                await MainActor.run {
+                    self.localFileURL = localURL
+                    let item = AVPlayerItem(url: localURL)
+                    let player = AVPlayer(playerItem: item)
+                    player.isMuted = false
+                    self.player = player
 
-        finishedObserver = NotificationCenter.default.addObserver(
-            forName: .AVPlayerItemDidPlayToEndTime,
-            object: item,
-            queue: .main
-        ) { [weak self] _ in
-            self?.didFinish = true
-        }
+                    self.finishedObserver = NotificationCenter.default.addObserver(
+                        forName: .AVPlayerItemDidPlayToEndTime,
+                        object: item,
+                        queue: .main
+                    ) { [weak self] _ in
+                        self?.didFinish = true
+                    }
 
-        player.play()
+                    player.play()
+                }
+            } catch {
+                await MainActor.run {
+                    self.loadError = error
+                }
+            }
+        }
     }
-    
+
+    private func downloadMedia(url: URL) async throws -> URL {
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        if let token = APIClient.shared.token {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        let (tempURL, response) = try await URLSession.shared.download(for: request)
+        guard let httpResponse = response as? HTTPURLResponse,
+              (200..<300).contains(httpResponse.statusCode) else {
+            throw URLError(.badServerResponse)
+        }
+
+        let filename = UUID().uuidString + "-" + url.lastPathComponent
+        let destination = FileManager.default.temporaryDirectory.appendingPathComponent(filename)
+        if FileManager.default.fileExists(atPath: destination.path) {
+            try? FileManager.default.removeItem(at: destination)
+        }
+        try FileManager.default.moveItem(at: tempURL, to: destination)
+        return destination
+    }
+
     func play() {
         player?.play()
     }
-    
+
     func pause() {
         player?.pause()
     }
-    
+
     func reset() {
+        downloadTask?.cancel()
+        downloadTask = nil
         player?.pause()
         player = nil
         didFinish = false
+        loadError = nil
         if let observer = finishedObserver {
             NotificationCenter.default.removeObserver(observer)
             finishedObserver = nil
+        }
+        if let localFileURL = localFileURL {
+            try? FileManager.default.removeItem(at: localFileURL)
+            self.localFileURL = nil
         }
     }
 }
