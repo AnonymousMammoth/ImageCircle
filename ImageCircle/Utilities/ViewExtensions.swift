@@ -97,7 +97,9 @@ func avatarImage(url: URL?) -> some View {
 
 /// Common avatar data needed by `AvatarImage`.
 protocol AvatarDisplayable {
+    var id: Int { get }
     var username: String { get }
+    var avatarFilename: String? { get }
     var avatarURL: String? { get }
 }
 
@@ -110,8 +112,7 @@ struct AvatarImage: View {
 
     var body: some View {
         Group {
-            if let urlString = user.avatarURL, !urlString.isEmpty,
-               let url = URL(string: urlString), url.scheme != nil {
+            if let url = resolvedAvatarURL(for: user) {
                 KFImage(url)
                     .resizable()
                     .placeholder { placeholderAvatar(name: user.username) }
@@ -123,4 +124,20 @@ struct AvatarImage: View {
         .frame(width: size, height: size)
         .clipShape(Circle())
     }
+}
+
+private func resolvedAvatarURL(for user: AvatarDisplayable) -> URL? {
+    if let urlString = user.avatarURL, !urlString.isEmpty {
+        if let url = URL(string: urlString), url.scheme != nil {
+            return url
+        }
+        if let base = UserDefaults.standard.string(forKey: "server_url"), !base.isEmpty,
+           let url = URL(string: base + urlString) {
+            return url
+        }
+    }
+    if let filename = user.avatarFilename, !filename.isEmpty {
+        return MediaURL.url(userID: user.id, filename: filename)
+    }
+    return nil
 }

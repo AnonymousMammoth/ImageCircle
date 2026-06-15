@@ -10,10 +10,11 @@ import (
 // NotificationActor is a minimal, privacy-safe actor representation used in
 // notification payloads. It intentionally omits admin flags and account status.
 type NotificationActor struct {
-	ID          int64  `json:"id"`
-	Username    string `json:"username"`
-	DisplayName string `json:"display_name"`
-	AvatarURL   string `json:"avatar_url"`
+	ID            int64  `json:"id"`
+	Username      string `json:"username"`
+	DisplayName   string `json:"display_name"`
+	AvatarFilename string `json:"avatar_filename"`
+	AvatarURL     string `json:"avatar_url"`
 }
 
 // Notification represents an activity item for the owner of a post
@@ -167,6 +168,7 @@ func scanNotifications(rows *sql.Rows) ([]*Notification, error) {
 			return nil, fmt.Errorf("scan notification row: %w", err)
 		}
 
+		actor.AvatarFilename = actorAvatar.String
 		actor.AvatarURL = BuildAvatarURL(actor.ID, actorAvatar.String)
 		n.Actor = &actor
 

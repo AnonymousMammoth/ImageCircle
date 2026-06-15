@@ -35,12 +35,14 @@ struct NotificationActor: Codable, Identifiable {
     let id: Int
     let username: String
     let displayName: String
+    let avatarFilename: String?
     let avatarURL: String?
 
     enum CodingKeys: String, CodingKey {
         case id
         case username
         case displayName = "display_name"
+        case avatarFilename = "avatar_filename"
         case avatarURL = "avatar_url"
     }
 }
