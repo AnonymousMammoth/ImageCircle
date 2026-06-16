@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -91,6 +92,22 @@ func ClientIPFromRemoteAddr(c *gin.Context) string {
 		return c.Request.RemoteAddr
 	}
 	return ip
+}
+
+// ClientIPFromXRealIP returns the real client IP from the X-Real-Ip header that
+// a trusted reverse proxy sets (e.g. nginx `proxy_set_header X-Real-IP $remote_addr`).
+// Because nginx overwrites this header on every request it cannot be spoofed by the
+// client, making it a safe per-client rate-limiting key. It falls back to the
+// connection RemoteAddr when the header is absent (e.g. direct connections).
+//
+// This is used instead of gin's c.ClientIP() because the rate limiter must derive
+// a stable per-client key without depending on gin's trusted-proxy configuration,
+// which would otherwise collapse every proxied request onto the single proxy IP.
+func ClientIPFromXRealIP(c *gin.Context) string {
+	if ip := strings.TrimSpace(c.GetHeader("X-Real-Ip")); ip != "" {
+		return ip
+	}
+	return ClientIPFromRemoteAddr(c)
 }
 
 // allow checks whether the given key has a token available.

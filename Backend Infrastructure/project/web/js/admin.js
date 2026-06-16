@@ -40,6 +40,13 @@ function escapeHtml(str) {
     return div.innerHTML;
 }
 
+// escapeAttr escapes a value for safe interpolation inside a quoted HTML
+// attribute. escapeHtml does not escape quote characters, so a value containing
+// a quote could otherwise break out of the attribute and inject new attributes.
+function escapeAttr(str) {
+    return escapeHtml(str).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
 /* ---------- Date formatting ---------- */
 function formatDate(isoString) {
     if (!isoString) return '-';
@@ -235,9 +242,13 @@ function renderReports() {
 
 /* ---------- Content Review ---------- */
 
-function mediaUrlWithToken(path) {
-    if (!path) return '';
-    return path + (path.indexOf('?') >= 0 ? '&' : '?') + 'token=' + encodeURIComponent(jwtToken || '');
+// Media thumbnails are loaded via <img src>, which authenticates with the
+// same-origin circle_session cookie set at login. The JWT must NOT be placed in
+// the URL: query-string credentials leak into proxy/access logs, browser history
+// and Referer headers. The backend ignores any ?token= param and reads the
+// cookie (or Authorization header) instead.
+function mediaUrl(path) {
+    return path || '';
 }
 
 async function loadContentReview() {
@@ -273,7 +284,7 @@ function renderContentList(items, type) {
         if (type === 'post') {
             const caption = escapeHtml(item.caption || '(no caption)');
             const thumb = item.thumbnail_url || item.media_url || '';
-            const imgHtml = thumb ? `<img class="content-thumb" src="${escapeHtml(mediaUrlWithToken(thumb))}" alt="">` : '<div class="content-thumb content-thumb-placeholder">Text</div>';
+            const imgHtml = thumb ? `<img class="content-thumb" src="${escapeAttr(mediaUrl(thumb))}" alt="">` : '<div class="content-thumb content-thumb-placeholder">Text</div>';
             bodyHtml = `
                 <div class="content-preview">${imgHtml}</div>
                 <div class="content-meta">
@@ -284,7 +295,7 @@ function renderContentList(items, type) {
             `;
         } else if (type === 'story') {
             const thumb = item.thumbnail_url || item.media_url || '';
-            const imgHtml = thumb ? `<img class="content-thumb" src="${escapeHtml(mediaUrlWithToken(thumb))}" alt="">` : '<div class="content-thumb content-thumb-placeholder">Media</div>';
+            const imgHtml = thumb ? `<img class="content-thumb" src="${escapeAttr(mediaUrl(thumb))}" alt="">` : '<div class="content-thumb content-thumb-placeholder">Media</div>';
             bodyHtml = `
                 <div class="content-preview">${imgHtml}</div>
                 <div class="content-meta">
@@ -306,7 +317,7 @@ function renderContentList(items, type) {
         card.innerHTML = `
             ${bodyHtml}
             <div class="content-actions">
-                <button class="btn btn-danger btn-small" data-action="delete-content" data-type="${escapeHtml(type)}" data-id="${escapeHtml(String(item.id))}">Delete</button>
+                <button class="btn btn-danger btn-small" data-action="delete-content" data-type="${escapeAttr(type)}" data-id="${escapeAttr(String(item.id))}">Delete</button>
             </div>
         `;
         contentList.appendChild(card);
@@ -432,7 +443,7 @@ async function createUser() {
                 ${tempPass ? `
                     <label style="display:block;margin-top:1rem;font-size:0.875rem;font-weight:500">Temporary Password</label>
                     <div class="temp-password-box">
-                        <input type="text" id="temp-password" value="${escapeHtml(tempPass)}" readonly>
+                        <input type="text" id="temp-password" value="${escapeAttr(tempPass)}" readonly>
                         <button type="button" class="btn btn-secondary" id="copy-pass-btn">Copy</button>
                     </div>
                     <p style="font-size:0.8125rem;color:var(--text-secondary);margin-top:0.5rem">Share this password with the user. It will not be shown again.</p>
@@ -467,7 +478,7 @@ async function resetPassword(userId) {
             ${tempPass ? `
                 <label style="display:block;margin-top:1rem;font-size:0.875rem;font-weight:500">Temporary Password</label>
                 <div class="temp-password-box">
-                    <input type="text" id="temp-password" value="${escapeHtml(tempPass)}" readonly>
+                    <input type="text" id="temp-password" value="${escapeAttr(tempPass)}" readonly>
                     <button type="button" class="btn btn-secondary" id="copy-pass-btn">Copy</button>
                 </div>
                 <p style="font-size:0.8125rem;color:var(--text-secondary);margin-top:0.5rem">Share this password with the user. It will not be shown again.</p>

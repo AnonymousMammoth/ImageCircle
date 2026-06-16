@@ -47,9 +47,14 @@ final class AuthManager: ObservableObject {
             self.currentUser = user
             self.isAuthenticated = true
             await BlockListStore.shared.fetch()
-        } catch {
-            // Token missing or invalid; remain logged out.
+        } catch APIError.unauthorized, APIError.forbidden {
+            // The token is genuinely invalid, expired, or revoked — clear it.
             await logout()
+        } catch {
+            // Transient failure (offline, timeout, server unreachable). Keep the
+            // stored token so the session can be restored on a later launch
+            // instead of forcing the user to re-enter credentials after a blip.
+            self.isAuthenticated = false
         }
     }
     

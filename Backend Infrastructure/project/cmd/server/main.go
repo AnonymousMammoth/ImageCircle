@@ -102,9 +102,15 @@ func main() {
 	mediaStore := storage.NewMediaStore(cfg.MediaDir)
 
 	// 7. Initialize rate limiters
+	// When running behind a trusted reverse proxy (nginx), the connection
+	// RemoteAddr is the proxy's IP — identical for every client — which would
+	// collapse all traffic onto a single rate-limit bucket and break per-IP
+	// brute-force protection. In that case derive the key from the X-Real-Ip
+	// header nginx sets to the real client address (and overwrites, so it cannot
+	// be spoofed). Without a proxy, use the connection RemoteAddr directly.
 	clientIPExtractor := middleware.ClientIPFromRemoteAddr
 	if cfg.TrustProxy {
-		clientIPExtractor = nil
+		clientIPExtractor = middleware.ClientIPFromXRealIP
 	}
 	rateLimiter := middleware.NewRateLimiterWithExtractor(cfg.RateLimit, clientIPExtractor)
 	strictRateLimiter := middleware.NewRateLimiterWithExtractor(10, clientIPExtractor)

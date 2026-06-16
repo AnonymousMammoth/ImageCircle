@@ -30,6 +30,12 @@ services:
       - CIRCLE_MAX_MEDIA_SIZE=${CIRCLE_MAX_MEDIA_SIZE:-52428800}
       - CIRCLE_RATE_LIMIT=${CIRCLE_RATE_LIMIT:-100}
       - CIRCLE_PASSWORD_COST=${CIRCLE_PASSWORD_COST:-12}
+      # The app always runs behind the bundled nginx proxy, so trust the
+      # X-Real-Ip it sets. Required for per-client rate limiting to work.
+      - CIRCLE_TRUST_PROXY=${CIRCLE_TRUST_PROXY:-true}
+      # Set to true when the proxy terminates HTTPS so the session cookie is
+      # only sent over secure connections. Leave false for plain-HTTP LAN setups.
+      - CIRCLE_COOKIE_SECURE=${CIRCLE_COOKIE_SECURE:-false}
     volumes:
       - ./data:/data
     networks:

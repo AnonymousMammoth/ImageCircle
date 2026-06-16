@@ -3,6 +3,7 @@ package models
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -69,13 +70,18 @@ func GetUserByUsername(db *sql.DB, username string) (*User, error) {
 }
 
 // SearchUsers searches users by username or display name (case-insensitive LIKE).
+// LIKE metacharacters in the query are escaped so a search for "%" or "_" matches
+// those literal characters instead of acting as a wildcard, and results are capped
+// to avoid returning the entire user table for a broad query.
 func SearchUsers(db *sql.DB, query string) ([]*User, error) {
-	pattern := "%" + query + "%"
+	escaper := strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)
+	pattern := "%" + escaper.Replace(query) + "%"
 	sqlQuery := `
 		SELECT id, username, display_name, password_hash, is_admin, password_change_required, avatar_filename, created_at
 		FROM users
-		WHERE username LIKE ? OR display_name LIKE ?
+		WHERE username LIKE ? ESCAPE '\' OR display_name LIKE ? ESCAPE '\'
 		ORDER BY username
+		LIMIT 50
 	`
 	rows, err := db.Query(sqlQuery, pattern, pattern)
 	if err != nil {

@@ -34,6 +34,10 @@ function createEl(tag, attrs, children) {
                 setText(el, attrs[key]);
             } else if (key === 'className') {
                 el.className = attrs[key];
+            } else if (key === 'innerHTML') {
+                // Only used with trusted, static markup (e.g. inline SVG icons).
+                // Never pass user-controlled data here.
+                el.innerHTML = attrs[key];
             } else if (key.startsWith('on') && typeof attrs[key] === 'function') {
                 const eventName = key.slice(2).toLowerCase();
                 el.addEventListener(eventName, attrs[key]);
